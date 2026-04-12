@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Попытка #{{ attempt.id }}{% endblock %}
+{% block content %}
+<h1>Попытка #{{ attempt.id }}</h1>
+<p>Файл: {{ attempt.submitted_filename or "—" }}</p>
+{% if role == "teacher" %}
+<p><a href="/teacher">← К списку</a></p>
+<form method="post" action="/teacher/attempt/{{ attempt.id }}/comment" class="card">
+  <h2>Комментарий</h2>
+  <textarea name="body" rows="4" style="width:100%"></textarea>
+  <button type="submit">Сохранить</button>
+</form>
+<form method="post" action="/teacher/attempt/{{ attempt.id }}/review_file" enctype="multipart/form-data" class="card">
+  <h2>Проверенный файл</h2>
+  <input type="file" name="upload" accept=".xlsx"/>
+  <button type="submit">Загрузить</button>
+</form>
+{% else %}
+<p><a href="/student">← Назад</a></p>
+{% endif %}
+
+{% if attempt.teacher_review and attempt.teacher_review.comments %}
+<section class="card">
+  <h2>Комментарии преподавателя</h2>
+  {% for c in attempt.teacher_review.comments %}
+    <p>{{ c.body }}</p>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if attempt.teacher_review and attempt.teacher_review.files %}
+<section class="card">
+  <h2>Файлы преподавателя</h2>
+  <ul>
+    {% for f in attempt.teacher_review.files %}
+      <li><a href="/download/review/{{ f.id }}">{{ f.original_name }}</a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Результат автопроверки</h2>
+  <p class="score">Баллы: {{ report.get('total_score', 0) }} / {{ report.get('max_score', 0) }}</p>
+  {% set tasks = report.get('tasks', {}) %}
+  <table class="tbl">
+    <thead><tr><th>№</th><th>Статус</th><th>Баллы</th><th>Сообщение</th></tr></thead>
+    <tbody>
+    {% for i in range(1, 14) %}
+      {% set t = tasks.get(i|string) or tasks.get(i) %}
+      <tr>
+        <td>{{ i }}</td>
+        <td>{{ t.status if t else "—" }}</td>
+        <td>{{ (t.score ~ ' / ' ~ t.max_score) if t else "—" }}</td>
+        <td>
+          {% if t and t.human_message %}{{ t.human_message }}{% endif %}
+          {% if t and t.errors %}
+            <ul class="errs">{% for e in t.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

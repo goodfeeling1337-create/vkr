@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Кабинет студента{% endblock %}
+{% block content %}
+<h1>Кабинет студента</h1>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+
+<section class="card">
+  <h2>Доступные шаблоны</h2>
+  {% if works %}
+  <table class="tbl">
+    <thead><tr><th>Работа</th><th>Версия</th><th></th></tr></thead>
+    <tbody>
+    {% for w in works %}
+      {% set ver = w.versions|sort(attribute='version_number')|last %}
+      <tr>
+        <td>{{ w.title }}</td>
+        <td>{{ ver.version_number if ver else "—" }}</td>
+        <td>
+          {% if ver %}
+            <a href="/download/template/{{ ver.id }}">Скачать шаблон</a>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Нет опубликованных эталонов.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Отправить выполненную работу</h2>
+  <form method="post" action="/student/submit" enctype="multipart/form-data">
+    <label>Файл (.xlsx) <input name="upload" type="file" accept=".xlsx" required/></label>
+    <label>ID версии эталона (если метаданные в файле повреждены)
+      <input name="reference_version_id" type="number" placeholder="например 1"/>
+    </label>
+    <button type="submit">Отправить на проверку</button>
+  </form>
+  <p class="hint">Обычно версию указывать не нужно — она берётся из скрытых метаданных шаблона.</p>
+</section>
+
+<section class="card">
+  <h2>Мои попытки</h2>
+  {% if attempts %}
+  <ul class="list">
+    {% for a in attempts %}
+      <li><a href="/student/attempt/{{ a.id }}">Попытка #{{ a.id }}</a> — {{ a.submitted_filename or "файл" }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Пока нет попыток.</p>
+  {% endif %}
+</section>
+{% endblock %}

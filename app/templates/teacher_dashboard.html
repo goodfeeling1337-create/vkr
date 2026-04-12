@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Кабинет преподавателя{% endblock %}
+{% block content %}
+<h1>Кабинет преподавателя</h1>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+
+<section class="card">
+  <h2>Загрузить эталон (.xlsx)</h2>
+  <form method="post" action="/teacher/reference/upload" enctype="multipart/form-data">
+    <label>Название работы <input name="title" required placeholder="Лабораторная 1"/></label>
+    <label>Файл <input name="upload" type="file" accept=".xlsx" required/></label>
+    <label class="inline"><input type="checkbox" name="publish"/> Опубликовать для студентов</label>
+    <button type="submit">Загрузить</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Эталоны</h2>
+  {% if works %}
+  <ul class="list">
+    {% for w in works %}
+      <li>
+        <a href="/teacher/reference/{{ w.id }}">{{ w.title }}</a>
+        — версий: {{ w.versions|length }}
+        {% if w.is_published %}<span class="ok">опубликовано</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Эталонов пока нет.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Последние попытки студентов</h2>
+  {% if attempts %}
+  <table class="tbl">
+    <thead><tr><th>ID</th><th>Студент</th><th>Файл</th><th></th></tr></thead>
+    <tbody>
+    {% for a in attempts[:30] %}
+      <tr>
+        <td>{{ a.id }}</td>
+        <td>{{ a.student.username }}</td>
+        <td>{{ a.submitted_filename or "—" }}</td>
+        <td><a href="/teacher/attempt/{{ a.id }}">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Попыток пока нет.</p>
+  {% endif %}
+</section>
+{% endblock %}

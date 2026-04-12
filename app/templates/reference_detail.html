@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ work.title }}{% endblock %}
+{% block content %}
+<h1>{{ work.title }}</h1>
+<p><a href="/teacher">← Назад</a></p>
+<section class="card">
+  <h2>Версии</h2>
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Файл</th><th></th></tr></thead>
+    <tbody>
+    {% for v in work.versions|sort(attribute='version_number') %}
+      <tr>
+        <td>{{ v.version_number }}</td>
+        <td>{{ v.original_filename }}</td>
+        <td><a href="/download/template/{{ v.id }}">Скачать шаблон</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

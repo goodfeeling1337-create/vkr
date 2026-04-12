@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dn_user
+      POSTGRES_PASSWORD: dn_pass
+      POSTGRES_DB: dn_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dn_user -d dn_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: dev-docker-secret-change-me
+      DATABASE_URL: postgresql+psycopg://dn_user:dn_pass@db:5432/dn_db
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - upload_data:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  upload_data:
