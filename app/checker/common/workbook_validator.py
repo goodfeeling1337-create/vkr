@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from openpyxl.workbook.workbook import Workbook
 
@@ -19,15 +19,17 @@ class WorkbookValidationResult:
     ok: bool
     errors: list[str]
     sheet_name: str | None = None
+    warnings: list[str] = field(default_factory=list)
 
 
 class WorkbookValidator:
     """Validates structural constraints for .xlsx homework files."""
 
-    def validate(self, wb: Workbook) -> WorkbookValidationResult:
+    def validate(self, wb: Workbook, *, require_all_sections: bool = False) -> WorkbookValidationResult:
         errors: list[str] = []
+        warnings: list[str] = []
         if wb is None:
-            return WorkbookValidationResult(False, ["Файл не загружен"], None)
+            return WorkbookValidationResult(False, ["Файл не загружен"], None, [])
         names = data_sheet_names(wb)
         if len(names) != 1:
             extra = len(wb.sheetnames) - len(names)
@@ -38,7 +40,7 @@ class WorkbookValidator:
                     f"Ожидается один лист с ответами (плюс опционально «{META_SHEET_NAME}»), "
                     f"листов с заданиями: {len(names)}",
                 )
-            return WorkbookValidationResult(False, errors, None)
+            return WorkbookValidationResult(False, errors, None, [])
         sheet_name = names[0]
         ws = wb[sheet_name]
         matrix: list[list[object]] = []
@@ -48,6 +50,12 @@ class WorkbookValidator:
         hits = loc.find_sections()
         for n in range(1, 14):
             if n not in hits:
-                errors.append(f'Не найдена секция «Задание №{n}»')
+                msg = (
+                    f"Не найдена секция задания {n} (ожидается ячейка вида «Задание №{n}» или «Задание {n}»)"
+                )
+                if require_all_sections:
+                    errors.append(msg)
+                else:
+                    warnings.append(msg)
         ok = len(errors) == 0
-        return WorkbookValidationResult(ok, errors, sheet_name)
+        return WorkbookValidationResult(ok, errors, sheet_name, warnings)

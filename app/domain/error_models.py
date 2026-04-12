@@ -19,6 +19,7 @@ class TypicalError:
     example: str
     student_explanation: str
     teacher_explanation: str
+    matching_rule: str = ""
 
 
 @dataclass
@@ -42,6 +43,7 @@ class TypicalMistakeMatch:
     confidence: float  # 0..1 эвристическая уверенность
     student_message: str
     teacher_message: str
+    matching_rule: str | None = None
 
 
 @dataclass
@@ -63,6 +65,7 @@ class TaskErrorAnalysis:
                     "confidence": m.confidence,
                     "student_message": m.student_message,
                     "teacher_message": m.teacher_message,
+                    **({"matching_rule": m.matching_rule} if m.matching_rule else {}),
                 }
                 for m in self.matches
             ],
@@ -70,4 +73,4 @@ class TaskErrorAnalysis:
         }
 
 
-ErrorClassification = Literal["structural", "logical", "methodical", "syntactic"]
+ErrorClassification = Literal["structural", "syntactic", "semantic", "logical", "methodical"]

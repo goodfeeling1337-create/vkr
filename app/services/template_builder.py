@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
+from openpyxl.cell.cell import MergedCell
 from openpyxl.workbook.workbook import Workbook
 
 from app.checker.common.section_locator import SectionLocator
@@ -20,9 +21,12 @@ log = logging.getLogger(__name__)
 
 
 def _clear_region(ws: Any, r1: int, r2: int, c1: int, c2: int) -> None:
+    """Очищает значения; ячейки объединённых диапазонов (кроме master) пропускаем — иначе MergedCell read-only."""
     for r in range(r1, r2 + 1):
         for c in range(c1, c2 + 1):
             cell = ws.cell(row=r, column=c)
+            if isinstance(cell, MergedCell):
+                continue
             cell.value = None
 
 

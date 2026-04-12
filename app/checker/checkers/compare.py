@@ -10,15 +10,15 @@ from app.domain.check_results import TaskCheckResult, TaskStatus
 def check_task1(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     errs: list[str] = []
     if normalize_attribute_name(ref.get("relation", "")) != normalize_attribute_name(stu.get("relation", "")):
-        errs.append("Название отношения не совпадает")
+        errs.append("Название исходного отношения не совпадает с эталоном")
     rh = [normalize_attribute_name(x) for x in ref.get("headers", [])]
     sh = [normalize_attribute_name(x) for x in stu.get("headers", [])]
     if rh != sh:
-        errs.append("Заголовки не совпадают")
+        errs.append("Заголовки атрибутов не совпадают с эталоном")
     rr = sorted(ref.get("rows", []))
     sr = sorted(stu.get("rows", []))
     if rr != sr:
-        errs.append("Набор строк (как мультимножество) не совпадает")
+        errs.append("Набор строк не совпадает с эталоном (мультимножество строк)")
     ok = len(errs) == 0
     return TaskCheckResult(
         1,
@@ -41,7 +41,7 @@ def check_task2(ref: dict[str, Any], stu: dict[str, Any], attr_vocab: set[str]) 
             if a not in attr_vocab:
                 errs.append(f"Неизвестный атрибут в группе: {a}")
     if sorted(rg) != sorted(sg):
-        errs.append("Наборы групп не совпадают")
+        errs.append("Набор групп повторяющихся атрибутов не совпадает с эталоном")
     ok = len(errs) == 0
     return TaskCheckResult(
         2,
@@ -69,25 +69,25 @@ def check_task3(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     rel_r = normalize_attribute_name(str(ref.get("relation", "") or ""))
     rel_s = normalize_attribute_name(str(stu.get("relation", "") or ""))
     if rel_r and rel_s and rel_r != rel_s:
-        errs.append("Название отношения не совпадает")
+        errs.append("Название отношения в задании 3 не совпадает с эталоном")
     # Если в эталоне есть строка с названием, а у студента она опущена — не штрафуем при совпадении таблицы
     if [normalize_attribute_name(x) for x in ref.get("headers", [])] != [
         normalize_attribute_name(x) for x in stu.get("headers", [])
     ]:
-        errs.append("Заголовки не совпадают")
+        errs.append("Заголовки столбцов 1НФ не совпадают с эталоном")
     rk = [normalize_attribute_name(x) for x in ref.get("key_attributes", [])]
     sk = [normalize_attribute_name(x) for x in stu.get("key_attributes", [])]
     if sorted(rk) != sorted(sk):
-        errs.append("Ключевые атрибуты не совпадают")
+        errs.append("Ключевые атрибуты 1НФ не совпадают с эталоном")
     rr = ref.get("rows", [])
     sr = stu.get("rows", [])
     if sorted(rr) != sorted(sr):
-        errs.append("Строки данных не совпадают (как мультимножество)")
+        errs.append("Строки данных 1НФ не совпадают с эталоном (мультимножество строк)")
     hdrs = [normalize_attribute_name(x) for x in stu.get("headers", [])]
     key_idx = [i for i, h in enumerate(hdrs) if h in set(sk)]
     if hdrs and key_idx and sr:
         if not _key_unique(sr, key_idx):
-            errs.append("Указанный ключ не уникализирует строки таблицы")
+            errs.append("Указанный ключ 1НФ не уникализирует строки таблицы (есть дубликаты по ключу)")
     ok = len(errs) == 0
     return TaskCheckResult(
         3,
@@ -109,12 +109,14 @@ def check_task4(ref: dict[str, Any], stu: dict[str, Any], vocab: set[str]) -> Ta
     for lhs, rhs in sg.items():
         for a in lhs:
             if a not in vocab:
-                errs.append(f"Левая часть: неизвестный атрибут {a}")
+                errs.append(f"Левая часть ФЗ: атрибут «{a}» не из словаря задания 1")
         for a in rhs:
             if a not in vocab:
-                errs.append(f"Правая часть: неизвестный атрибут {a}")
+                errs.append(f"Правая часть ФЗ: атрибут «{a}» не из словаря задания 1")
     if rg != sg:
-        errs.append("Множество функциональных зависимостей не совпадает (после канонизации)")
+        errs.append(
+            "Множество функциональных зависимостей не совпадает с эталоном (канонизация по элементарным ФЗ)",
+        )
     ok = len(errs) == 0
     return TaskCheckResult(
         4,
@@ -137,7 +139,12 @@ def check_task5(
     sp = {normalize_attribute_name(x) for x in stu.get("pk_attributes", [])}
     errs: list[str] = []
     if rp != sp:
-        errs.append("Множество атрибутов первичного ключа не совпадает")
+        if sp and rp and sp < rp:
+            errs.append("Неполный первичный ключ: не хватает атрибутов по сравнению с эталоном.")
+        elif sp and rp and rp < sp:
+            errs.append("Избыточный первичный ключ: лишние атрибуты относительно эталона.")
+        else:
+            errs.append("Множество атрибутов первичного ключа не совпадает с эталоном.")
     if task3_ref and task3_stu:
         # Soft cross-check: student key should uniquely identify rows in student's table
         hdr = [normalize_attribute_name(x) for x in task3_stu.get("headers", [])]
@@ -145,7 +152,7 @@ def check_task5(
         idxs = [i for i, h in enumerate(hdr) if h in sp]
         if hdr and idxs and rows:
             if not _key_unique(rows, idxs):
-                errs.append("По данным задания 3 выбранный ключ не уникализирует строки")
+                errs.append("По данным задания 3 выбранный ключ логически не уникализирует строки (есть дубликаты по ключу).")
     ok = len(errs) == 0
     return TaskCheckResult(
         5,
@@ -163,7 +170,7 @@ def check_task6(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     sr = elementary_fd_signature(stu.get("fd_lines", []))
     errs: list[str] = []
     if rr != sr:
-        errs.append("Множество элементарных частичных ФЗ не совпадает с эталоном")
+        errs.append("Множество элементарных частичных ФЗ не совпадает с эталоном (шаг частичных зависимостей)")
     ok = len(errs) == 0
     return TaskCheckResult(
         6,
@@ -182,7 +189,9 @@ def check_task7(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     sr = elementary_fd_signature(stu.get("fd_lines", []))
     errs: list[str] = []
     if rr != sr:
-        errs.append("Множество элементарных ФЗ (в т.ч. вложенных) не совпадает с эталоном")
+        errs.append(
+            "Множество элементарных ФЗ не совпадает с эталоном (вложенные формы учтены при разборе строк)",
+        )
     ok = len(errs) == 0
     return TaskCheckResult(
         7,
@@ -204,7 +213,7 @@ def check_task8(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
         TaskStatus.correct if ok else TaskStatus.wrong,
         1.0 if ok else 0.0,
         1.0,
-        errors=[] if ok else ["Транзитивные ФЗ не совпадают"],
+        errors=[] if ok else ["Множество элементарных транзитивных ФЗ не совпадает с эталоном"],
         parsed_answer=stu,
         expected_answer_snapshot=ref,
     )
@@ -226,7 +235,11 @@ def check_task9(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
         errs = ['Ожидалось согласованное указание «Нет» или набор ФЗ']
     else:
         ok = r_sig == s_sig
-        errs = [] if ok else ["Итоговое множество элементарных транзитивных ФЗ не совпадает с эталоном"]
+        errs = (
+            []
+            if ok
+            else ["Итоговое множество элементарных транзитивных ФЗ (задание 9) не совпадает с эталоном"]
+        )
     return TaskCheckResult(
         9,
         TaskStatus.correct if ok else TaskStatus.wrong,
@@ -250,6 +263,54 @@ def _canon_relation_set(rels: list[dict[str, Any]], allow_drop_pure: bool) -> se
     return out
 
 
+def _fmt_canon_relation(t: tuple[str, tuple[str, ...], tuple[str, ...]]) -> str:
+    name, attrs, keys = t
+    return f"{name}({','.join(attrs)}) key({','.join(keys)})"
+
+
+def _schema_set_diff_errors(
+    ref_rels: list[dict[str, Any]],
+    stu_rels: list[dict[str, Any]],
+    *,
+    allow_optional_pure_junction: bool,
+    label: str,
+) -> list[str]:
+    rc = _canon_relation_set(ref_rels, allow_optional_pure_junction)
+    sc = _canon_relation_set(stu_rels, allow_optional_pure_junction)
+    if rc == sc:
+        return []
+    missing = rc - sc
+    extra = sc - rc
+    errs: list[str] = []
+    if missing:
+        lim = 12
+        items = sorted(missing, key=lambda x: (x[0], x[1], x[2]))[:lim]
+        tail = ""
+        if len(missing) > lim:
+            tail = f" … (всего не хватает или отличается {len(missing)} отнош.)"
+        errs.append(
+            "Нет в ответе или отличается от эталона ("
+            + label
+            + "): "
+            + "; ".join(_fmt_canon_relation(x) for x in items)
+            + tail
+        )
+    if extra:
+        lim = 12
+        items = sorted(extra, key=lambda x: (x[0], x[1], x[2]))[:lim]
+        tail = ""
+        if len(extra) > lim:
+            tail = f" … (всего лишних {len(extra)})"
+        errs.append(
+            "Лишние отношения относительно эталона ("
+            + label
+            + "): "
+            + "; ".join(_fmt_canon_relation(x) for x in items)
+            + tail
+        )
+    return errs if errs else [f"Схема отношений ({label}) не совпадает с эталоном"]
+
+
 def check_task11(
     ref: dict[str, Any],
     stu: dict[str, Any],
@@ -260,12 +321,20 @@ def check_task11(
     rc = _canon_relation_set(rr, allow_optional_pure_junction)
     sc = _canon_relation_set(sr, allow_optional_pure_junction)
     ok = rc == sc
+    errs: list[str] = []
+    if not ok:
+        errs = _schema_set_diff_errors(
+            rr,
+            sr,
+            allow_optional_pure_junction=allow_optional_pure_junction,
+            label="2НФ",
+        )
     return TaskCheckResult(
         11,
         TaskStatus.correct if ok else TaskStatus.wrong,
         1.0 if ok else 0.0,
         1.0,
-        errors=[] if ok else ["Схемы отношений 2НФ не совпадают"],
+        errors=errs,
         parsed_answer=stu,
         expected_answer_snapshot=ref,
     )
@@ -281,12 +350,20 @@ def check_task13(
     rc = _canon_relation_set(rr, allow_optional_pure_junction)
     sc = _canon_relation_set(sr, allow_optional_pure_junction)
     ok = rc == sc
+    errs: list[str] = []
+    if not ok:
+        errs = _schema_set_diff_errors(
+            rr,
+            sr,
+            allow_optional_pure_junction=allow_optional_pure_junction,
+            label="3НФ",
+        )
     return TaskCheckResult(
         13,
         TaskStatus.correct if ok else TaskStatus.wrong,
         1.0 if ok else 0.0,
         1.0,
-        errors=[] if ok else ["Схемы отношений 3НФ не совпадают"],
+        errors=errs,
         parsed_answer=stu,
         expected_answer_snapshot=ref,
     )

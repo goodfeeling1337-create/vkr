@@ -56,10 +56,11 @@ def run_check(
     allow_optional_pure_junction: bool,
     metadata_resolution: str | None = None,
 ) -> CheckReport:
-    v = WorkbookValidator().validate(wb)
+    v = WorkbookValidator().validate(wb, require_all_sections=False)
     report = CheckReport(
         metadata_resolution=metadata_resolution,
         workbook_structure_errors=list(v.errors),
+        workbook_structure_warnings=list(v.warnings or []),
     )
     if not v.ok:
         for e in v.errors:

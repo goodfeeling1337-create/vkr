@@ -39,6 +39,8 @@ class CheckReport:
     # Аудит: откуда взята привязка к эталону и замечания по структуре книги
     metadata_resolution: str | None = None
     workbook_structure_errors: list[str] = field(default_factory=list)
+    """Некритичные замечания по книге (например отсутствующие заголовки секций при мягкой проверке)."""
+    workbook_structure_warnings: list[str] = field(default_factory=list)
     semantic_summary: dict[str, Any] | None = None
     check_run_version: str | None = None
 
@@ -68,6 +70,8 @@ class CheckReport:
             out["metadata_resolution"] = self.metadata_resolution
         if self.workbook_structure_errors:
             out["workbook_structure_errors"] = list(self.workbook_structure_errors)
+        if self.workbook_structure_warnings:
+            out["workbook_structure_warnings"] = list(self.workbook_structure_warnings)
         if self.semantic_summary:
             out["semantic_summary"] = dict(self.semantic_summary)
         if self.check_run_version:

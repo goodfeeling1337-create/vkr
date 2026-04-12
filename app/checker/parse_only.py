@@ -41,7 +41,7 @@ _PARSERS = {
 
 
 def parse_all_tasks(wb: Workbook) -> dict[int, Any]:
-    v = WorkbookValidator().validate(wb)
+    v = WorkbookValidator().validate(wb, require_all_sections=False)
     if not v.ok:
         log.warning("parse_all_tasks: workbook invalid: %s", v.errors)
     matrix = matrix_from_workbook(wb)

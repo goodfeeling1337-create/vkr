@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any
 
 
-CHECK_RUN_VERSION = "2"
+CHECK_RUN_VERSION = "4"
 
 
 class SemanticMark(str, Enum):
@@ -19,9 +19,10 @@ class SemanticMark(str, Enum):
 
 class ErrorCategory(str, Enum):
     structural = "structural"
-    logical = "logical"
-    methodical = "methodical"
     syntactic = "syntactic"
+    semantic = "semantic"  # смысловые ошибки (ФЗ, ключи, схемы)
+    logical = "logical"  # совместимость: дублирует «семантику» в старых данных
+    methodical = "methodical"
 
 
 @dataclass

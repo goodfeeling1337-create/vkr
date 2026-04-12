@@ -32,14 +32,16 @@ def get_attempt_detail(db: Session, attempt_id: int) -> StudentAttempt | None:
         select(StudentAttempt)
         .options(
             joinedload(StudentAttempt.student),
-            joinedload(StudentAttempt.reference_version).joinedload(ReferenceWorkVersion.reference_work),
+            joinedload(StudentAttempt.reference_version)
+            .joinedload(ReferenceWorkVersion.reference_work)
+            .joinedload(ReferenceWork.variant),
             joinedload(StudentAttempt.teacher_review).options(
                 selectinload(TeacherReview.comments),
                 selectinload(TeacherReview.files),
             ),
         )
         .where(StudentAttempt.id == attempt_id),
-    ).scalar_one_or_none()
+    ).unique().scalar_one_or_none()
 
 
 def list_attempts_for_teacher(db: Session, teacher_id: int) -> list[StudentAttempt]:

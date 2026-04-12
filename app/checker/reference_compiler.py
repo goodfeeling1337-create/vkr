@@ -34,7 +34,7 @@ def matrix_from_workbook(wb: Workbook) -> list[list[Any]]:
 
 
 def compile_reference_payloads(wb: Workbook) -> tuple[dict[int, dict[str, Any]], list[str]]:
-    v = WorkbookValidator().validate(wb)
+    v = WorkbookValidator().validate(wb, require_all_sections=True)
     if not v.ok:
         return {}, v.errors
     matrix = matrix_from_workbook(wb)

@@ -42,3 +42,4 @@ app = ["templates/**/*", "static/**/*"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-q --ignore=tests/integration"

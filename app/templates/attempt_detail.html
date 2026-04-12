@@ -48,6 +48,10 @@
   <p class="err">Замечания по структуре файла:</p>
   <ul>{% for w in report.get('workbook_structure_errors', []) %}<li>{{ w }}</li>{% endfor %}</ul>
   {% endif %}
+  {% if report.get('workbook_structure_warnings') %}
+  <p class="meta">Структура книги (предупреждения, проверка по заданиям продолжается):</p>
+  <ul>{% for w in report.get('workbook_structure_warnings', []) %}<li>{{ w }}</li>{% endfor %}</ul>
+  {% endif %}
   <p class="score">Баллы: {{ report.get('total_score', 0) }} / {{ report.get('max_score', 0) }}</p>
   {% if report.get('semantic_summary') %}
   {% set ss = report.get('semantic_summary') %}
@@ -57,6 +61,14 @@
     {% if ss.get('fd_block_mean_recall') is not none %} (средняя доля покрытия эталона ≈ {{ ss.get('fd_block_mean_recall')|round(2) }}){% endif %}
   </p>
   {% if ss.get('fd_block_explanation') %}<p class="meta">{{ ss.get('fd_block_explanation') }}</p>{% endif %}
+  {% if ss.get('schema_block_mean_recall') is not none %}
+  <p class="meta">
+    Сводка по схемам (11, 13):
+    {% if ss.get('schema_block_semantic_mark') %}марка {{ ss.get('schema_block_semantic_mark') }}{% endif %}
+    (средняя доля покрытия эталона ≈ {{ ss.get('schema_block_mean_recall')|round(2) }})
+  </p>
+  {% endif %}
+  {% if ss.get('schema_block_explanation') %}<p class="meta">{{ ss.get('schema_block_explanation') }}</p>{% endif %}
   {% endif %}
   {% if report.get('check_run_version') %}
   <p class="meta">Версия проверки: {{ report.get('check_run_version') }}</p>
@@ -68,7 +80,15 @@
     {% for i in range(1, 14) %}
       {% set t = tasks.get(i|string) or tasks.get(i) %}
       <tr>
-        <td>{{ i }}</td>
+        <td>
+          {{ i }}
+          {% if role == 'student' and (scoring_mode|default('training')) == 'training' %}
+            {% set th = (training_task_hints or {}).get(i) %}
+            {% if th %}
+              <div class="meta" style="font-weight:normal;margin-top:0.25em">{{ th }}</div>
+            {% endif %}
+          {% endif %}
+        </td>
         <td>{{ t.status if t else "—" }}</td>
         <td>{{ (t.score ~ ' / ' ~ t.max_score) if t else "—" }}</td>
         <td>
@@ -86,7 +106,15 @@
             <p class="meta">Типовые ошибки (автоклассификация):</p>
             <ul class="errs">
             {% for m in t.typical_mistakes %}
-              <li><strong>{{ m.title }}</strong> ({{ m.code }}) — {{ m.student_message if role != 'teacher' else m.teacher_message }}</li>
+              <li>
+                <strong>{{ m.title }}</strong> ({{ m.code }}) — {{ m.student_message if role != 'teacher' else m.teacher_message }}
+                {% if role == 'student' and (scoring_mode|default('training')) == 'training' and m.matching_rule %}
+                  <div class="meta" style="margin-top:0.35em"><em>Правило сопоставления:</em> {{ m.matching_rule }}</div>
+                {% endif %}
+                {% if role == 'student' and (scoring_mode|default('training')) == 'training' and (code_training_hints or {}).get(m.code) %}
+                  <div class="meta" style="margin-top:0.35em"><em>Методическая подсказка:</em> {{ (code_training_hints or {}).get(m.code) }}</div>
+                {% endif %}
+              </li>
             {% endfor %}
             </ul>
           {% endif %}

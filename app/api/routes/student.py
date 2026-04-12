@@ -1,18 +1,18 @@
+"""Студент: список работ, отправка попытки."""
+
 from __future__ import annotations
 
-import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_student
 from app.api.views import templates
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.models.orm import CheckRun, User
+from app.models.orm import User
 from app.repositories import attempts as att_repo
 from app.repositories import reference as ref_repo
 from app.services import attempt_service
@@ -89,24 +89,3 @@ async def student_submit(
             status_code=400,
         )
     return RedirectResponse(f"/student/attempt/{aid}", status_code=302)
-
-
-@router.get("/student/attempt/{attempt_id}", response_class=HTMLResponse)
-async def student_attempt_view(
-    request: Request,
-    attempt_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_student),
-) -> HTMLResponse:
-    att = att_repo.get_attempt_detail(db, attempt_id)
-    if att is None or att.student_id != user.id:
-        raise HTTPException(status_code=403, detail="У вас нет доступа к этой попытке")
-    cr = db.execute(
-        select(CheckRun).where(CheckRun.attempt_id == att.id).order_by(CheckRun.id.desc()),
-    ).scalar_one_or_none()
-    report = json.loads(cr.report_json) if cr else {}
-    return templates.TemplateResponse(
-        request,
-        "attempt_detail.html",
-        {"user": user, "attempt": att, "report": report, "role": "student"},
-    )

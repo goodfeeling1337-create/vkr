@@ -49,7 +49,7 @@ async def download_review_file(
         select(TeacherReviewFile)
         .options(joinedload(TeacherReviewFile.review).joinedload(TeacherReview.attempt))
         .where(TeacherReviewFile.id == file_id),
-    ).scalar_one_or_none()
+    ).unique().scalar_one_or_none()
     if f is None:
         raise HTTPException(status_code=404, detail="Файл не найден")
     att = f.review.attempt

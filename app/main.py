@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, downloads, student, teacher
+from app.api.routes import attempt_views, auth, downloads, reference, review, student, teacher
 from app.api.views import templates
 from app.core.config import get_settings
 from app.core.logging_config import setup_logging
@@ -26,6 +26,9 @@ if static_dir.exists():
 
 app.include_router(auth.router)
 app.include_router(teacher.router)
+app.include_router(reference.router)
+app.include_router(attempt_views.router)
+app.include_router(review.router)
 app.include_router(student.router)
 app.include_router(downloads.router)
 

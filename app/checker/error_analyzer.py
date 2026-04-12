@@ -44,6 +44,7 @@ def analyze_task_errors(
                         confidence=0.65,
                         student_message=te.student_explanation,
                         teacher_message=te.teacher_explanation,
+                        matching_rule=te.matching_rule or None,
                     )
                 )
                 matched_codes.add(te.code)
@@ -67,6 +68,7 @@ def analyze_task_errors(
                             confidence=min(0.55 + (1.0 - recall) * 0.3, 0.95),
                             student_message=te.student_explanation,
                             teacher_message=f"{te.teacher_explanation} (recall={recall:.2f}, {inter}/{ref_size})",
+                            matching_rule=te.matching_rule or None,
                         )
                     )
                     matched_codes.add("FD_MISSING")
@@ -81,6 +83,7 @@ def analyze_task_errors(
                             confidence=min(0.55 + (1.0 - precision) * 0.3, 0.95),
                             student_message=te.student_explanation,
                             teacher_message=f"{te.teacher_explanation} (precision={precision:.2f})",
+                            matching_rule=te.matching_rule or None,
                         )
                     )
 
@@ -96,8 +99,138 @@ def analyze_task_errors(
                         confidence=0.7,
                         student_message=te.student_explanation,
                         teacher_message=f"{te.teacher_explanation} (recall={recall:.2f})",
+                        matching_rule=te.matching_rule or None,
                     )
                 )
+                matched_codes.add(code)
+        if task_number in (11, 13) and stu_size > inter and precision < 1.0 and ref_size > 0:
+            te = NormalizationErrorCatalog.get("SCHEMA_EXTRA_RELATIONS")
+            if te and "SCHEMA_EXTRA_RELATIONS" not in matched_codes:
+                out.matches.append(
+                    TypicalMistakeMatch(
+                        code=te.code,
+                        title=te.title,
+                        category=te.category.value,
+                        confidence=min(0.6 + (1.0 - precision) * 0.35, 0.95),
+                        student_message=te.student_explanation,
+                        teacher_message=f"{te.teacher_explanation} (precision={precision:.2f})",
+                        matching_rule=te.matching_rule or None,
+                    )
+                )
+                matched_codes.add("SCHEMA_EXTRA_RELATIONS")
+
+    if semantic and task_number in (11, 13):
+        sgk = semantic.get("schema_gap_kind")
+        if sgk == "extra_vs_ref" and "SCHEMA_EXTRA_RELATIONS" not in matched_codes:
+            te = NormalizationErrorCatalog.get("SCHEMA_EXTRA_RELATIONS")
+            if te:
+                out.matches.append(
+                    TypicalMistakeMatch(
+                        code=te.code,
+                        title=te.title,
+                        category=te.category.value,
+                        confidence=0.87,
+                        student_message=te.student_explanation,
+                        teacher_message=te.teacher_explanation,
+                        matching_rule=te.matching_rule or None,
+                    )
+                )
+                matched_codes.add("SCHEMA_EXTRA_RELATIONS")
+
+    if semantic and task_number == 1:
+        tg = semantic.get("table_gap_kind")
+        cm = {
+            "relation_name": "SOURCE_RELATION_NAME",
+            "headers": "SOURCE_TABLE_HEADERS",
+            "rows": "SOURCE_TABLE_ROWS",
+        }
+        c = cm.get(tg)
+        if c and c not in matched_codes:
+            te = NormalizationErrorCatalog.get(c)
+            if te:
+                out.matches.append(
+                    TypicalMistakeMatch(
+                        code=te.code,
+                        title=te.title,
+                        category=te.category.value,
+                        confidence=0.9,
+                        student_message=te.student_explanation,
+                        teacher_message=te.teacher_explanation,
+                        matching_rule=te.matching_rule or None,
+                    )
+                )
+                matched_codes.add(c)
+
+    if semantic and task_number == 2:
+        gi = semantic.get("group_issue")
+        cm = {"unknown_attr": "T2_UNKNOWN_ATTRIBUTE", "groups_mismatch": "GROUP_NOT_REPEATED"}
+        c = cm.get(gi)
+        if c and c not in matched_codes:
+            te = NormalizationErrorCatalog.get(c)
+            if te:
+                out.matches.append(
+                    TypicalMistakeMatch(
+                        code=te.code,
+                        title=te.title,
+                        category=te.category.value,
+                        confidence=0.88,
+                        student_message=te.student_explanation,
+                        teacher_message=te.teacher_explanation,
+                        matching_rule=te.matching_rule or None,
+                    )
+                )
+                matched_codes.add(c)
+
+    if semantic and task_number == 3:
+        nk = semantic.get("nf1_issue_kind")
+        cm = {
+            "relation_name": "NF1_RELATION_NAME",
+            "headers": "NF1_HEADERS",
+            "key_attributes": "NF1_KEY_ATTRS",
+            "rows": "NF1_ROWS",
+            "key_not_unique": "NF1_KEY_NOT_UNIQUE",
+        }
+        c = cm.get(nk)
+        if c and c not in matched_codes:
+            te = NormalizationErrorCatalog.get(c)
+            if te:
+                out.matches.append(
+                    TypicalMistakeMatch(
+                        code=te.code,
+                        title=te.title,
+                        category=te.category.value,
+                        confidence=0.9,
+                        student_message=te.student_explanation,
+                        teacher_message=te.teacher_explanation,
+                        matching_rule=te.matching_rule or None,
+                    )
+                )
+                matched_codes.add(c)
+
+    if semantic and task_number == 5:
+        pk_kind = semantic.get("pk_kind")
+        code_map = {
+            "incomplete": "PK_INCOMPLETE",
+            "redundant": "PK_REDUNDANT",
+            "mismatch": "PK_WRONG",
+            "not_unique_on_rows": "PK_NON_UNIQUE_ON_ROWS",
+        }
+        c = code_map.get(pk_kind)
+        if c and c not in matched_codes:
+            te = NormalizationErrorCatalog.get(c)
+            if te:
+                out.matches.append(
+                    TypicalMistakeMatch(
+                        code=te.code,
+                        title=te.title,
+                        category=te.category.value,
+                        confidence=0.88,
+                        student_message=te.student_explanation,
+                        teacher_message=te.teacher_explanation,
+                        matching_rule=te.matching_rule or None,
+                    )
+                )
+                matched_codes.add(c)
 
     # Дедупликация по code, оставляем максимальную confidence
     by_code: dict[str, TypicalMistakeMatch] = {}

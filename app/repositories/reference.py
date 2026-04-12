@@ -36,7 +36,7 @@ def get_version(db: Session, version_id: int) -> ReferenceWorkVersion | None:
             joinedload(ReferenceWorkVersion.reference_work).joinedload(ReferenceWork.variant),
         )
         .where(ReferenceWorkVersion.id == version_id),
-    ).scalar_one_or_none()
+    ).unique().scalar_one_or_none()
 
 
 def published_works_for_student(db: Session, mentor_teacher_id: int | None) -> list[ReferenceWork]:
