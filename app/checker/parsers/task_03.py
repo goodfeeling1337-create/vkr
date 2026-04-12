@@ -11,42 +11,67 @@ from app.domain.workbook import ParsedTaskSection
 _STAR = re.compile(r"\*+\s*$")
 
 
+def _try_parse_header_row(row: list[object]) -> tuple[list[str], set[str]] | None:
+    raw_cells = [str(c) if c is not None else "" for c in row]
+    if sum(1 for x in raw_cells if x.strip()) < 2:
+        return None
+    headers_raw: list[str] = []
+    key_attrs: set[str] = set()
+    for c in row:
+        if not c:
+            headers_raw.append("")
+            continue
+        s = str(c)
+        is_key = bool(_STAR.search(s))
+        name = normalize_attribute_name(_STAR.sub("", s))
+        headers_raw.append(name)
+        if is_key and name:
+            key_attrs.add(name)
+    if not key_attrs:
+        return None
+    return headers_raw, key_attrs
+
+
 def parse_task3(section: ParsedTaskSection) -> ParseOutcome[dict[str, Any]]:
     rows = non_empty_rows(section)
     if not rows:
         return ParseOutcome.failure("Пустая секция задания 3")
+
     rel_name = ""
-    hi = 0
+    start_scan = 0
     first = rows[0]
     filled = [normalize_attribute_name(str(c)) for c in first if c and str(c).strip()]
-    if len(filled) == 1 and "," not in (first[0] or ""):
-        rel_name = filled[0]
-        hi = 1
-    headers_raw: list[str] = []
-    key_attrs: set[str] = set()
-    start_data = 0
-    found = False
-    for i in range(hi, len(rows)):
-        raw_cells = [str(c) if c is not None else "" for c in rows[i]]
-        if sum(1 for x in raw_cells if x.strip()) < 2:
-            continue
+
+    # Сразу строка заголовков (без отдельной строки с названием отношения)
+    hdr_try = _try_parse_header_row(first)
+    if hdr_try is not None:
+        headers_raw, key_attrs = hdr_try
+        start_data = 1
+    else:
+        # Строка названия отношения: одна короткая ячейка без запятых
+        if len(filled) == 1 and "," not in (first[0] or ""):
+            rel_name = filled[0]
+            start_scan = 1
+        else:
+            start_scan = 0
+
         headers_raw = []
         key_attrs = set()
-        for c in rows[i]:
-            if not c:
-                headers_raw.append("")
+        start_data = 0
+        found = False
+        for i in range(start_scan, len(rows)):
+            parsed = _try_parse_header_row(rows[i])
+            if parsed is None:
                 continue
-            s = str(c)
-            is_key = bool(_STAR.search(s))
-            name = normalize_attribute_name(_STAR.sub("", s))
-            headers_raw.append(name)
-            if is_key and name:
-                key_attrs.add(name)
-        start_data = i + 1
-        found = True
-        break
-    if not found:
-        return ParseOutcome.failure("Не найдена строка заголовков 1НФ (или нет ключевых пометок *)")
+            headers_raw, key_attrs = parsed
+            start_data = i + 1
+            found = True
+            break
+        if not found:
+            return ParseOutcome.failure(
+                "Не найдена строка заголовков 1НФ (или нет ключевых пометок *)",
+            )
+
     headers = [normalize_attribute_name(h) for h in headers_raw if normalize_attribute_name(h)]
     data_rows: list[tuple[str, ...]] = []
     for i in range(start_data, len(rows)):

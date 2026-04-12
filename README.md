@@ -4,7 +4,7 @@
 
 ## Стек
 
-- Python 3.12, FastAPI, Jinja2, SQLAlchemy 2.0, Alembic, openpyxl, Pydantic, bcrypt, itsdangerous (сессии)
+- Python 3.9+, FastAPI, Jinja2, SQLAlchemy 2.0, Alembic, openpyxl, Pydantic, bcrypt, itsdangerous (сессии)
 - **PostgreSQL** (драйвер `psycopg` v3); в Docker — сервис `db` в `docker-compose.yml`
 - pytest для тестов
 
@@ -36,18 +36,31 @@ docker compose up --build
 
 ## Локальный запуск (без Docker)
 
-Нужны **Python 3.10+** и **запущенный PostgreSQL** с созданной БД и пользователем (см. `.env.example`).
+Нужны **Python 3.9+** и **запущенный PostgreSQL** с созданной БД и пользователем (см. `.env.example`).
+
+Рекомендуется обновить pip и поставить зависимости (вариант через файлы — работает и со старым pip):
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-export DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/dn_db
-export UPLOAD_DIR=./uploads
+python -m pip install -U pip setuptools wheel
+python -m pip install -r requirements-dev.txt
+python -m pip install -e .
+```
+
+Альтернатива одной командой из метаданных пакета: `python -m pip install -e ".[dev]"` (нужен pip с поддержкой PEP 517).
+
+Дальше — переменные окружения (удобнее всего из файла):
+
+```bash
+cp .env.example .env
+# при необходимости отредактируйте .env (логин/пароль/хост PostgreSQL)
 mkdir -p uploads
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
+
+Приложение и Alembic подхватывают `DATABASE_URL`, `UPLOAD_DIR` и остальное из `.env` автоматически (см. `app/core/config.py`). Не коммитьте в git свой `.env` с реальными секретами — держите его только локально (файл `.env` в `.gitignore`).
 
 ## Демо-пользователи
 

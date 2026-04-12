@@ -53,9 +53,13 @@ def run_check(
     reference_payloads: dict[int, dict[str, Any]],
     *,
     allow_optional_pure_junction: bool,
+    metadata_resolution: str | None = None,
 ) -> CheckReport:
     v = WorkbookValidator().validate(wb)
-    report = CheckReport()
+    report = CheckReport(
+        metadata_resolution=metadata_resolution,
+        workbook_structure_errors=list(v.errors),
+    )
     if not v.ok:
         for e in v.errors:
             log.warning("workbook validation: %s", e)

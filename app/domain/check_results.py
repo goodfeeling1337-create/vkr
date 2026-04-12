@@ -31,9 +31,12 @@ class CheckReport:
     task_results: dict[int, TaskCheckResult] = field(default_factory=dict)
     total_score: float = 0.0
     max_score: float = 0.0
+    # Аудит: откуда взята привязка к эталону и замечания по структуре книги
+    metadata_resolution: str | None = None
+    workbook_structure_errors: list[str] = field(default_factory=list)
 
     def to_serializable(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "total_score": self.total_score,
             "max_score": self.max_score,
             "tasks": {
@@ -50,3 +53,8 @@ class CheckReport:
                 for k, v in self.task_results.items()
             },
         }
+        if self.metadata_resolution:
+            out["metadata_resolution"] = self.metadata_resolution
+        if self.workbook_structure_errors:
+            out["workbook_structure_errors"] = list(self.workbook_structure_errors)
+        return out

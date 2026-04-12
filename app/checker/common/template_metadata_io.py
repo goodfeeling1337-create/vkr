@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from dataclasses import dataclass
+from typing import Literal
 
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -16,6 +17,16 @@ META_SHEET_NAME = "__template_meta__"
 META_COL_START = 702
 META_ROW_START = 1
 META_PARTS = 5
+
+MetadataSource = Literal["hidden_sheet", "hidden_cells", "none"]
+
+
+@dataclass(frozen=True)
+class MetadataReadResult:
+    """Результат чтения метаданных шаблона и источник (для аудита и fallback)."""
+
+    metadata: TemplateMetadata | None
+    source: MetadataSource
 
 
 def write_metadata_hidden_cells(ws: Worksheet, meta: TemplateMetadata) -> None:
@@ -51,24 +62,28 @@ def _read_joined_hidden(ws: Worksheet) -> str | None:
     return s if s else None
 
 
-def read_metadata_from_workbook(wb: Workbook) -> TemplateMetadata | None:
-    # Prefer hidden sheet (more robust to column shifts)
+def read_metadata_from_workbook(wb: Workbook) -> MetadataReadResult:
+    # Prefer hidden sheet (устойчивее к сдвигам столбцов)
     if META_SHEET_NAME in wb.sheetnames:
         ws = wb[META_SHEET_NAME]
         raw = ws["A1"].value
         if raw:
             try:
-                return TemplateMetadata.from_json_str(str(raw))
+                meta = TemplateMetadata.from_json_str(str(raw))
+                log.debug("template metadata from hidden sheet version=%s", meta.reference_version_id)
+                return MetadataReadResult(meta, "hidden_sheet")
             except Exception as e:  # noqa: BLE001
                 log.warning("Hidden sheet meta parse failed: %s", e)
     ws_main = wb[wb.sheetnames[0]]
     joined = _read_joined_hidden(ws_main)
     if joined:
         try:
-            return TemplateMetadata.from_json_str(joined)
+            meta = TemplateMetadata.from_json_str(joined)
+            log.debug("template metadata from hidden cells version=%s", meta.reference_version_id)
+            return MetadataReadResult(meta, "hidden_cells")
         except Exception as e:  # noqa: BLE001
             log.warning("Hidden cells meta parse failed: %s", e)
-    return None
+    return MetadataReadResult(None, "none")
 
 
 def merge_metadata_preference(a: TemplateMetadata | None, b: TemplateMetadata | None) -> TemplateMetadata | None:

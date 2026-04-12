@@ -10,11 +10,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    # development | production — влияет на безопасные значения по умолчанию для cookie
+    app_environment: Literal["development", "production"] = "development"
     secret_key: str = "dev-secret-change-me"
     database_url: str = "postgresql+psycopg://dn_user:dn_pass@localhost:5432/dn_db"
     upload_dir: Path = Path("./uploads")
     session_cookie_name: str = "dn_session"
     session_max_age: int = 86400 * 7
+    # В production задайте SESSION_COOKIE_SECURE=true за HTTPS
+    session_cookie_secure: bool = False
     log_level: str = "INFO"
     default_scoring_mode: Literal["training", "testing"] = "training"
     allow_optional_pure_junction_relations: bool = True

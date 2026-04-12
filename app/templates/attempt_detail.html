@@ -41,6 +41,13 @@
 
 <section class="card">
   <h2>Результат автопроверки</h2>
+  {% if report.get('metadata_resolution') %}
+  <p class="meta">Привязка к эталону: {{ report.get('metadata_resolution') }}</p>
+  {% endif %}
+  {% if report.get('workbook_structure_errors') %}
+  <p class="err">Замечания по структуре файла:</p>
+  <ul>{% for w in report.get('workbook_structure_errors', []) %}<li>{{ w }}</li>{% endfor %}</ul>
+  {% endif %}
   <p class="score">Баллы: {{ report.get('total_score', 0) }} / {{ report.get('max_score', 0) }}</p>
   {% set tasks = report.get('tasks', {}) %}
   <table class="tbl">

@@ -6,7 +6,7 @@ from typing import Any
 from openpyxl.workbook.workbook import Workbook
 
 from app.checker.common.parse_sections import build_parsed_workbook
-from app.checker.common.workbook_validator import WorkbookValidator
+from app.checker.common.workbook_validator import WorkbookValidator, data_sheet_names
 from app.checker.parsers import (
     task_01,
     task_02,
@@ -23,7 +23,10 @@ from app.checker.parsers import (
 
 
 def matrix_from_workbook(wb: Workbook) -> list[list[Any]]:
-    ws = wb[wb.sheetnames[0]]
+    names = data_sheet_names(wb)
+    if not names:
+        raise ValueError("Нет листа с заданиями")
+    ws = wb[names[0]]
     matrix: list[list[Any]] = []
     for row in ws.iter_rows(values_only=True):
         matrix.append(list(row))

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.checker.fd_algebra import group_by_lhs
+from app.checker.fd_algebra import elementary_fd_signature, group_by_lhs
 from app.checker.normalizers import normalize_attribute_name
 from app.domain.check_results import TaskCheckResult, TaskStatus
 
@@ -66,6 +66,11 @@ def _key_unique(rows: list[tuple[str, ...]], key_idx: list[int]) -> bool:
 
 def check_task3(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     errs: list[str] = []
+    rel_r = normalize_attribute_name(str(ref.get("relation", "") or ""))
+    rel_s = normalize_attribute_name(str(stu.get("relation", "") or ""))
+    if rel_r and rel_s and rel_r != rel_s:
+        errs.append("Название отношения не совпадает")
+    # Если в эталоне есть строка с названием, а у студента она опущена — не штрафуем при совпадении таблицы
     if [normalize_attribute_name(x) for x in ref.get("headers", [])] != [
         normalize_attribute_name(x) for x in stu.get("headers", [])
     ]:
@@ -154,11 +159,11 @@ def check_task5(
 
 
 def check_task6(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
-    rg = group_by_lhs(ref.get("fd_lines", []))
-    sg = group_by_lhs(stu.get("fd_lines", []))
+    rr = elementary_fd_signature(ref.get("fd_lines", []))
+    sr = elementary_fd_signature(stu.get("fd_lines", []))
     errs: list[str] = []
-    if rg != sg:
-        errs.append("Каноническое представление частичных ФЗ не совпадает")
+    if rr != sr:
+        errs.append("Множество элементарных частичных ФЗ не совпадает с эталоном")
     ok = len(errs) == 0
     return TaskCheckResult(
         6,
@@ -172,12 +177,12 @@ def check_task6(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
 
 
 def check_task7(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
-    """Compare grouped FDs; levels used only if both present for structural hint."""
-    rg = group_by_lhs(ref.get("fd_lines", []))
-    sg = group_by_lhs(stu.get("fd_lines", []))
+    """Сравнение по множеству элементарных ФЗ (вложенность отражается в разборе строк)."""
+    rr = elementary_fd_signature(ref.get("fd_lines", []))
+    sr = elementary_fd_signature(stu.get("fd_lines", []))
     errs: list[str] = []
-    if rg != sg:
-        errs.append("Вложенные частичные ФЗ не совпадают (канонически)")
+    if rr != sr:
+        errs.append("Множество элементарных ФЗ (в т.ч. вложенных) не совпадает с эталоном")
     ok = len(errs) == 0
     return TaskCheckResult(
         7,
@@ -191,8 +196,8 @@ def check_task7(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
 
 
 def check_task8(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
-    rg = group_by_lhs(ref.get("fd_lines", []))
-    sg = group_by_lhs(stu.get("fd_lines", []))
+    rg = elementary_fd_signature(ref.get("fd_lines", []))
+    sg = elementary_fd_signature(stu.get("fd_lines", []))
     ok = rg == sg
     return TaskCheckResult(
         8,
@@ -206,19 +211,22 @@ def check_task8(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
 
 
 def check_task9(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
-    """Soft: compare elementary FD sets; do not penalize simple chain vs nested if FD sets match."""
+    """Сравнение итогового множества элементарных транзитивных ФЗ (режим «Нет» — отдельно)."""
     rm = ref.get("mode", "chains")
     sm = stu.get("mode", "chains")
     rfd = ref.get("fd_lines", [])
     sfd = stu.get("fd_lines", [])
-    rg = group_by_lhs(rfd)
-    sg = group_by_lhs(sfd)
+    r_sig = elementary_fd_signature(rfd)
+    s_sig = elementary_fd_signature(sfd)
     if rm == "none" and sm == "none":
         ok = True
         errs: list[str] = []
+    elif rm == "none" or sm == "none":
+        ok = False
+        errs = ['Ожидалось согласованное указание «Нет» или набор ФЗ']
     else:
-        ok = rg == sg
-        errs = [] if ok else ["Итоговый набор транзитивных ФЗ не совпадает"]
+        ok = r_sig == s_sig
+        errs = [] if ok else ["Итоговое множество элементарных транзитивных ФЗ не совпадает с эталоном"]
     return TaskCheckResult(
         9,
         TaskStatus.correct if ok else TaskStatus.wrong,

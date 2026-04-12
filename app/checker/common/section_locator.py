@@ -5,10 +5,17 @@ from dataclasses import dataclass
 
 from app.checker.common.excel_io import get_cell_str
 
+# Заголовок секции: «Задание», опционально №, номер, допускается текст формулировки справа;
+# пробелы/регистр/варианты №; номер 1–13.
 _SECTION_RE = re.compile(
-    r"^\s*Задание\s*№?\s*(\d{1,2})\s*$",
+    r"^\s*задание\s*№\s*(\d{1,2})\b",
     re.IGNORECASE | re.UNICODE,
 )
+
+
+def _normalize_cell_text(s: str) -> str:
+    # Не используем NFKC: он превращает «№» в «No» и ломает поиск заголовков.
+    return " ".join(s.split())
 
 
 @dataclass
@@ -20,8 +27,8 @@ class SectionHit:
 
 class SectionLocator:
     """
-    Finds 'Задание №N' by scanning each cell (not whole-row concat).
-    Ignores neighbor cells like 'Правильно'.
+    Ищет «Задание №N» по ячейкам (не склейка строки).
+    Совпадение по началу ячейки: допускается продолжение в той же ячейке (формулировка).
     """
 
     def __init__(self, matrix: list[list[object]], max_col_scan: int | None = None) -> None:
@@ -38,7 +45,8 @@ class SectionLocator:
                 s = get_cell_str(cell)
                 if not s:
                     continue
-                m = _SECTION_RE.match(s.strip())
+                s_norm = _normalize_cell_text(s)
+                m = _SECTION_RE.match(s_norm)
                 if not m:
                     continue
                 n = int(m.group(1))

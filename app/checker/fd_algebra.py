@@ -51,3 +51,12 @@ def group_by_lhs(lines: list[str]) -> dict[frozenset[str], set[str]]:
         for fd in split_elementary_from_line(ln):
             g[fd.lhs].add(fd.rhs)
     return {k: set(v) for k, v in g.items()}
+
+
+def elementary_fd_signature(lines: list[str]) -> frozenset[tuple[tuple[str, ...], str]]:
+    """
+    Каноническое множество элементарных ФЗ (lhs sorted tuple, rhs).
+    Устойчиво к разбиению одной строки на несколько и к разным группировкам LHS в исходном тексте.
+    """
+    fs = elementary_fd_set(lines)
+    return frozenset(fd.as_tuple() for fd in fs.fds)

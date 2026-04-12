@@ -7,7 +7,7 @@ name = "db-normalization-checker"
 version = "0.1.0"
 description = "Web service for automated checking of database normalization homework (Excel .xlsx)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.32.0",
@@ -28,6 +28,7 @@ dependencies = [
 dev = [
   "pytest>=8.3.0",
   "httpx>=0.28.0",
+  "pytest-asyncio>=0.24.0",
 ]
 
 [tool.setuptools.packages.find]
