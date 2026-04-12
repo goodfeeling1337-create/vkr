@@ -49,9 +49,21 @@
   <ul>{% for w in report.get('workbook_structure_errors', []) %}<li>{{ w }}</li>{% endfor %}</ul>
   {% endif %}
   <p class="score">Баллы: {{ report.get('total_score', 0) }} / {{ report.get('max_score', 0) }}</p>
+  {% if report.get('semantic_summary') %}
+  {% set ss = report.get('semantic_summary') %}
+  <p class="meta">
+    Сводка по блоку ФЗ (4,6–9):
+    {% if ss.get('fd_block_semantic_mark') %}марка {{ ss.get('fd_block_semantic_mark') }}{% endif %}
+    {% if ss.get('fd_block_mean_recall') is not none %} (средняя доля покрытия эталона ≈ {{ ss.get('fd_block_mean_recall')|round(2) }}){% endif %}
+  </p>
+  {% if ss.get('fd_block_explanation') %}<p class="meta">{{ ss.get('fd_block_explanation') }}</p>{% endif %}
+  {% endif %}
+  {% if report.get('check_run_version') %}
+  <p class="meta">Версия проверки: {{ report.get('check_run_version') }}</p>
+  {% endif %}
   {% set tasks = report.get('tasks', {}) %}
   <table class="tbl">
-    <thead><tr><th>№</th><th>Статус</th><th>Баллы</th><th>Сообщение</th></tr></thead>
+    <thead><tr><th>№</th><th>Статус</th><th>Баллы</th><th>Марка</th><th>Сообщение</th></tr></thead>
     <tbody>
     {% for i in range(1, 14) %}
       {% set t = tasks.get(i|string) or tasks.get(i) %}
@@ -60,9 +72,23 @@
         <td>{{ t.status if t else "—" }}</td>
         <td>{{ (t.score ~ ' / ' ~ t.max_score) if t else "—" }}</td>
         <td>
+          {% if t and t.semantic_mark %}{{ t.semantic_mark }}{% else %}—{% endif %}
+          {% if role == 'teacher' and t and t.semantic_mark_explanation %}
+            <div class="meta">{{ t.semantic_mark_explanation }}</div>
+          {% endif %}
+        </td>
+        <td>
           {% if t and t.human_message %}{{ t.human_message }}{% endif %}
           {% if t and t.errors %}
             <ul class="errs">{% for e in t.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
+          {% if t and t.typical_mistakes %}
+            <p class="meta">Типовые ошибки (автоклассификация):</p>
+            <ul class="errs">
+            {% for m in t.typical_mistakes %}
+              <li><strong>{{ m.title }}</strong> ({{ m.code }}) — {{ m.student_message if role != 'teacher' else m.teacher_message }}</li>
+            {% endfor %}
+            </ul>
           {% endif %}
         </td>
       </tr>

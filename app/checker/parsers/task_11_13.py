@@ -9,7 +9,14 @@ from app.checker.parsers.task_common import non_empty_rows
 from app.domain.workbook import ParsedTaskSection
 
 _REL_LINE = re.compile(
-    r"^\s*отношение\s*[:\-]?\s*(?P<name>.+?)\s*$",
+    r"^\s*(?:отношение|таблица|реляц(?:ия|ии)|схема)\s*[:\-]?\s*(?P<name>.+?)\s*$",
+    re.IGNORECASE,
+)
+
+# «2. Отношение X», «(2НФ) Таблица …»
+_REL_PREFIXED = re.compile(
+    r"^\s*(?:\(\s*2\s*нф\s*\)|\(\s*3\s*нф\s*\)|\d+[\).]\s*)"
+    r"(?:отношение|таблица|реляц(?:ия|ии)|схема)?\s*[:\-]?\s*(?P<name>.+?)\s*$",
     re.IGNORECASE,
 )
 
@@ -33,6 +40,43 @@ def _is_noise_row(joined: str) -> bool:
     if low.startswith("промежуточная") and len(joined) < 80:
         return True
     return False
+
+
+def _grid_name_attrs_row(row: list[str | None]) -> dict[str, Any] | None:
+    """
+    Одна строка: имя отношения | атрибуты через запятую или в соседних ячейках.
+    Частый формат в Excel без строки «Отношение:».
+    """
+    cells = [str(c).strip() for c in row if c is not None and str(c).strip()]
+    if len(cells) < 2:
+        return None
+    joined = " ".join(cells)
+    if "->" in joined or "→" in joined:
+        return None
+    name = normalize_attribute_name(cells[0])
+    if not name or len(name) > 200:
+        return None
+    low = name.lower()
+    if low in {"имя", "отношение", "название", "атрибут", "ключ", "таблица", "схема", "реляция", "no", "№"}:
+        return None
+    attrs: set[str] = set()
+    keys: set[str] = set()
+    for piece in cells[1:]:
+        for p in re.split(r"[,;]", piece):
+            p = p.strip()
+            if not p:
+                continue
+            is_key = "*" in p
+            n = normalize_attribute_name(p.replace("*", ""))
+            if n:
+                attrs.add(n)
+                if is_key:
+                    keys.add(n)
+    if not attrs:
+        return None
+    if re.match(r"^-?\d+$", name):
+        return None
+    return {"name": name, "attributes": sorted(attrs), "key_attributes": sorted(keys)}
 
 
 def _single_title_cells(row: list[str | None]) -> str | None:
@@ -108,7 +152,7 @@ def parse_relations_schema(section: ParsedTaskSection) -> ParseOutcome[dict[str,
             i += 1
             continue
 
-        m = _REL_LINE.match(joined)
+        m = _REL_LINE.match(joined) or _REL_PREFIXED.match(joined)
         if m:
             name = normalize_attribute_name(m.group("name"))
             attrs: set[str] = set()
@@ -119,7 +163,7 @@ def parse_relations_schema(section: ParsedTaskSection) -> ParseOutcome[dict[str,
                 if not line:
                     i += 1
                     continue
-                if _REL_LINE.match(line):
+                if _REL_LINE.match(line) or _REL_PREFIXED.match(line):
                     break
                 low = line.lower()
                 if low.startswith("ключ") or low.startswith("pk") or "первичн" in low:
@@ -157,7 +201,7 @@ def parse_relations_schema(section: ParsedTaskSection) -> ParseOutcome[dict[str,
                     if not jj:
                         i += 1
                         continue
-                    if _REL_LINE.match(jj):
+                    if _REL_LINE.match(jj) or _REL_PREFIXED.match(jj):
                         break
                     if _is_noise_row(jj):
                         i += 1
@@ -171,6 +215,12 @@ def parse_relations_schema(section: ParsedTaskSection) -> ParseOutcome[dict[str,
                         continue
                     i += 1
                 continue
+
+        gr = _grid_name_attrs_row(row)
+        if gr and not _is_data_row_not_header(row):
+            rels.append(gr)
+            i += 1
+            continue
 
         i += 1
 

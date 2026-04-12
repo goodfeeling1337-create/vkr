@@ -15,6 +15,12 @@ _NO_PARTIAL_RE = re.compile(
 )
 
 
+def _fd_fragments_from_raw_line(raw_line: str) -> list[str]:
+    """В одной ячейке часто пишут несколько ФЗ через ; или |."""
+    chunks = re.split(r"[;|]", raw_line)
+    return [c.strip() for c in chunks if c and str(c).strip()]
+
+
 def parse_task7(section: ParsedTaskSection) -> ParseOutcome[dict[str, Any]]:
     """Частичные ФЗ со стрелками; либо явное «нет/отсутствуют» без зависимостей."""
     rows = non_empty_rows(section)
@@ -25,13 +31,20 @@ def parse_task7(section: ParsedTaskSection) -> ParseOutcome[dict[str, Any]]:
                 continue
             raw = str(c)
             for line in raw.splitlines():
-                t = normalize_fd_text(line)
-                if not t or "->" not in t:
+                frags = _fd_fragments_from_raw_line(line) if line.strip() else []
+                if not frags:
                     continue
-                m = re.match(r"^(\s*)", line)
-                ws = m.group(1) if m else ""
-                level = len(ws.replace("\t", "  "))
-                entries.append((level, t))
+                m0 = re.match(r"^(\s*)", line)
+                base_ws = m0.group(1) if m0 else ""
+                base_level = len(base_ws.replace("\t", "  "))
+                for frag in frags:
+                    t = normalize_fd_text(frag)
+                    if not t or "->" not in t:
+                        continue
+                    m = re.match(r"^(\s*)", frag)
+                    ws = m.group(1) if m else ""
+                    level = base_level + len(ws.replace("\t", "  "))
+                    entries.append((level, t))
 
     if entries:
         lines_only = [e[1] for e in entries]
@@ -46,6 +59,13 @@ def parse_task7(section: ParsedTaskSection) -> ParseOutcome[dict[str, Any]]:
     blob = re.sub(r"^(ответ|задание)\s*[:.]?\s*", "", blob, flags=re.IGNORECASE).strip()
 
     if _NO_PARTIAL_RE.search(blob):
+        return ParseOutcome.success({"fd_lines": [], "levels": []})
+
+    if re.search(
+        r"(нет|отсутствуют)\s+(вложенных|частичных)|вложенных\s+частичных\s+фз\s+(нет|отсутствуют)",
+        blob,
+        re.IGNORECASE,
+    ):
         return ParseOutcome.success({"fd_lines": [], "levels": []})
 
     # Одна ячейка «нет»

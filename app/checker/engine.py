@@ -21,6 +21,7 @@ from app.checker.common.parse_sections import build_parsed_workbook
 from app.checker.common.workbook_validator import WorkbookValidator
 from app.checker.normalizers import normalize_attribute_name
 from app.checker.reference_compiler import matrix_from_workbook
+from app.checker.result_enrichment import enrich_task_result, finalize_report_semantics
 from app.checker.scoring import AUTO_CHECKED_TASKS, MANUAL_ONLY_TASKS, max_score_for_task, total_max_score
 from app.domain.check_results import CheckReport, TaskCheckResult, TaskStatus
 from app.checker.parsers import (
@@ -87,6 +88,15 @@ def run_check(
                 human_message="Проверяется преподавателем",
             )
         report.max_score = total_max_score()
+        for t in AUTO_CHECKED_TASKS:
+            enrich_task_result(
+                t,
+                report.task_results[t],
+                ref_payload=reference_payloads.get(t, {}),
+                stu_payload={},
+                allow_optional_pure_junction=allow_optional_pure_junction,
+            )
+        finalize_report_semantics(report)
         return report
 
     ref1 = reference_payloads.get(1)
@@ -123,6 +133,7 @@ def run_check(
                     human_message="Проверяется преподавателем",
                 )
                 continue
+            refp = reference_payloads.get(n, {})
             report.task_results[n] = TaskCheckResult(
                 n,
                 TaskStatus.parse_error,
@@ -131,12 +142,21 @@ def run_check(
                 errors=["Секция не найдена"],
                 human_message=f"Не удалось распознать ответ по заданию {n}: секция отсутствует",
             )
+            if n in AUTO_CHECKED_TASKS:
+                enrich_task_result(
+                    n,
+                    report.task_results[n],
+                    ref_payload=refp,
+                    stu_payload={},
+                    allow_optional_pure_junction=allow_optional_pure_junction,
+                )
             continue
         fn = parsers_map[n]
         try:
             pr = fn(parsed.sections[n])
         except Exception as exc:  # noqa: BLE001
             log.exception("parser crash task %s: %s", n, exc)
+            refp = reference_payloads.get(n, {})
             report.task_results[n] = TaskCheckResult(
                 n,
                 TaskStatus.parse_error,
@@ -145,8 +165,17 @@ def run_check(
                 errors=[f"Ошибка парсера: {exc}"],
                 human_message=f"Не удалось распознать ответ по заданию {n}: ошибка разбора",
             )
+            if n in AUTO_CHECKED_TASKS:
+                enrich_task_result(
+                    n,
+                    report.task_results[n],
+                    ref_payload=refp,
+                    stu_payload={},
+                    allow_optional_pure_junction=allow_optional_pure_junction,
+                )
             continue
         if not pr.ok:
+            refp = reference_payloads.get(n, {})
             report.task_results[n] = TaskCheckResult(
                 n,
                 TaskStatus.parse_error,
@@ -155,6 +184,14 @@ def run_check(
                 errors=[pr.error or "parse error"],
                 human_message=f"Не удалось распознать ответ по заданию {n}: {pr.error}",
             )
+            if n in AUTO_CHECKED_TASKS:
+                enrich_task_result(
+                    n,
+                    report.task_results[n],
+                    ref_payload=refp,
+                    stu_payload={},
+                    allow_optional_pure_junction=allow_optional_pure_junction,
+                )
             continue
         payload = pr.value or {}
         if n == 3:
@@ -209,6 +246,13 @@ def run_check(
                 human_message=f"Ошибка проверки задания {n}",
             )
         report.task_results[n] = tr
+        enrich_task_result(
+            n,
+            tr,
+            ref_payload=refp,
+            stu_payload=payload,
+            allow_optional_pure_junction=allow_optional_pure_junction,
+        )
 
     total = 0.0
     for _, tr in report.task_results.items():
@@ -219,6 +263,7 @@ def run_check(
     report.total_score = total
     report.max_score = total_max_score()
 
+    finalize_report_semantics(report)
     return report
 
 

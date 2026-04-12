@@ -26,6 +26,53 @@ def test_task7_ottsutstvuyut() -> None:
     assert r.value["fd_lines"] == []
 
 
+def test_task7_multiple_fd_semicolon_in_one_cell() -> None:
+    matrix = [
+        ["Задание №7"],
+        [None, "A -> B; B -> C"],
+    ]
+    parsed = build_parsed_workbook(matrix)
+    r = task_07.parse_task7(parsed.sections[7])
+    assert r.ok
+    assert len(r.value["fd_lines"]) == 2
+
+
+def test_task9_transitive_none_phrase() -> None:
+    matrix = [
+        ["Задание №9"],
+        [None, "нет транзитивных цепочек"],
+    ]
+    parsed = build_parsed_workbook(matrix)
+    r = task_09.parse_task9(parsed.sections[9])
+    assert r.ok
+    assert r.value["mode"] == "none"
+
+
+def test_task9_transitive_none_word_order() -> None:
+    matrix = [
+        ["Задание №9"],
+        [None, "транзитивных цепочек нет"],
+    ]
+    parsed = build_parsed_workbook(matrix)
+    r = task_09.parse_task9(parsed.sections[9])
+    assert r.ok
+    assert r.value["mode"] == "none"
+
+
+def test_task11_grid_row_name_attrs() -> None:
+    matrix = [
+        ["Задание №11"],
+        [None, "Поставщик", "Код*, Название, Город"],
+        [None, "Заказ", "Номер*, Дата, Ресторан"],
+    ]
+    parsed = build_parsed_workbook(matrix)
+    r = task_11_13.parse_relations_schema(parsed.sections[11])
+    assert r.ok
+    names = {x["name"].lower() for x in r.value["relations"]}
+    assert "поставщик" in names
+    assert "заказ" in names
+
+
 def test_task11_title_plus_header_row() -> None:
     matrix = [
         ["Задание №11"],

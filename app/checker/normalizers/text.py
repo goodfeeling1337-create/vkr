@@ -3,7 +3,10 @@ from __future__ import annotations
 import re
 import unicodedata
 
-_ARROW_RE = re.compile(r"\s*(?:->|→|=>|⟶|—>|-->|↦)\s*")
+# Частые варианты стрелок в Excel/Word; U+2013 en dash, U+2212 minus, U+21D2 ⇒
+_ARROW_RE = re.compile(
+    r"\s*(?:->|→|=>|⟶|—>|-->|↦|⇒|⟹|\u2013>|\u2212>)\s*",
+)
 _MULTI_SPACE = re.compile(r"\s+")
 _LIST_SPLIT = re.compile(r"[,;]\s*|\s+")
 
