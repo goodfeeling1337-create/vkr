@@ -79,6 +79,9 @@ class ReferenceWork(Base):
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Лимит попыток на студента по этой работе (все версии); None = без лимита
+    max_attempts: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    deadline_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     teacher: Mapped[User] = relationship(back_populates="reference_works")
     variant: Mapped[Variant] = relationship(back_populates="reference_works")
@@ -86,6 +89,17 @@ class ReferenceWork(Base):
         back_populates="reference_work",
         order_by="ReferenceWorkVersion.version_number",
     )
+
+    @property
+    def latest_version(self) -> Optional["ReferenceWorkVersion"]:
+        if not self.versions:
+            return None
+        return max(self.versions, key=lambda v: v.version_number)
+
+    @property
+    def latest_version_id(self) -> Optional[int]:
+        lv = self.latest_version
+        return lv.id if lv else None
 
 
 class ReferenceWorkVersion(Base):

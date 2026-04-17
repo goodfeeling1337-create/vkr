@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}{{ work.title }}{% endblock %}
+{% block content %}
+<p><a class="link-back" href="/student">← Ко всем заданиям</a></p>
+
+<div class="page-head work-page-head">
+  <div class="work-page-title">
+    <h1>{{ work.title }}</h1>
+    <span class="badge {% if scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
+      {{ 'Тренировка' if scoring_mode == 'training' else 'Тестирование' }}
+    </span>
+  </div>
+  <p class="lead">Преподаватель: <strong>{{ work.teacher.username }}</strong>
+    {% if work.variant %} · вариант: {{ work.variant.name }}{% endif %}
+  </p>
+</div>
+
+{% if scoring_mode == 'testing' %}
+<div class="banner-mode banner-testing">
+  <strong>Режим тестирования.</strong> Эталон недоступен. После проверки вы увидите только итоговый балл и краткую сводку без деталей, раскрывающих ответ.
+</div>
+{% else %}
+<div class="banner-mode banner-training">
+  <strong>Режим тренировки.</strong> Доступны эталон, подробный отчёт и подсказки по заданиям.
+</div>
+{% endif %}
+
+{% if error %}<p class="err card">{{ error }}</p>{% endif %}
+
+<section class="card steps-card">
+  <h2>Как сдать работу</h2>
+  <ol class="steps-list">
+    <li><span class="step-num">1</span> Скачайте шаблон и при необходимости эталон.</li>
+    <li><span class="step-num">2</span> Заполните файл в Excel и сохраните как .xlsx.</li>
+    <li><span class="step-num">3</span> Загрузите файл ниже — запустится автопроверка.</li>
+    <li><span class="step-num">4</span> Откройте страницу результата и при тренировке изучите ошибки.</li>
+  </ol>
+</section>
+
+<section class="card">
+  <h2>Файлы</h2>
+  <div class="inline file-actions">
+    {% if reference_version_id %}
+    <a class="btn btn-secondary" href="/download/template/{{ reference_version_id }}">Скачать шаблон</a>
+    {% if scoring_mode == 'training' %}
+      <a class="btn btn-secondary" href="/download/reference/{{ reference_version_id }}">Скачать эталон</a>
+    {% else %}
+      <span class="btn btn-secondary btn-disabled" title="В тестировании эталон скрыт">Эталон недоступен</span>
+    {% endif %}
+    {% else %}
+    <p class="meta">Версия эталона ещё не готова — обратитесь к преподавателю.</p>
+    {% endif %}
+  </div>
+  {% if work.deadline_at %}<p class="meta">Срок сдачи: {{ work.deadline_at.strftime('%d.%m.%Y %H:%M') }}</p>{% endif %}
+  {% if work.max_attempts %}<p class="meta">Лимит попыток на студента: {{ work.max_attempts }}</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Отправить ответ</h2>
+  {% if can_submit and reference_version_id %}
+  <form method="post" action="/student/work/{{ work.id }}/submit" enctype="multipart/form-data" class="form-grid">
+    <label>Файл .xlsx <input name="upload" type="file" accept=".xlsx" required/></label>
+    <button type="submit" class="btn btn-primary">Загрузить и проверить</button>
+  </form>
+  {% else %}
+  <p class="err">{{ submit_block_reason or 'Отправка недоступна.' }}</p>
+  {% endif %}
+</section>
+
+{% if best_score is not none %}
+<section class="card stat-highlight">
+  <h2>Лучший результат</h2>
+  <p class="score-line">{{ best_score | round(2) }}{% if best_max is not none %} / {{ best_max | round(2) }}{% endif %} баллов</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>История попыток</h2>
+  {% if attempt_rows %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Дата</th>
+        <th>Файл</th>
+        <th>Балл</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in attempt_rows %}
+      {% set a = row.attempt %}
+      <tr>
+        <td>{{ a.id }}</td>
+        <td>{{ a.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>{{ a.submitted_filename or '—' }}</td>
+        <td>
+          {% if row.score is not none %}
+            <span class="score-badge">{{ row.score | round(1) }}{% if row.max_score is not none %} / {{ row.max_score | round(0) | int }}{% endif %}</span>
+          {% else %}
+            <span class="meta">—</span>
+          {% endif %}
+        </td>
+        <td class="tbl-actions"><a href="/student/attempt/{{ a.id }}">Результат</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="meta">Пока нет отправок.</p>
+  {% endif %}
+</section>
+
+{% if teacher_comments %}
+<section class="card comments-card">
+  <h2>Комментарии преподавателя</h2>
+  <ul class="comment-list">
+    {% for c in teacher_comments %}
+    <li class="comment-item">
+      <p class="comment-body">{{ c.body }}</p>
+      <p class="meta">
+        {{ c.at.strftime('%d.%m.%Y %H:%M') }}
+        · <a href="/student/attempt/{{ c.attempt_id }}">к попытке #{{ c.attempt_id }}</a>
+      </p>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

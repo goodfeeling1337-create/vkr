@@ -12,6 +12,8 @@ from app.db.session import get_db
 from app.models.orm import User
 from app.repositories import attempts as att_repo
 from app.repositories import reference as ref_repo
+from app.repositories import variants as var_repo
+from app.repositories.variants import get_or_create_default_variant
 
 router = APIRouter()
 
@@ -24,8 +26,18 @@ async def teacher_dashboard(
 ) -> HTMLResponse:
     works = ref_repo.list_reference_works_for_teacher(db, user.id)
     attempts = att_repo.list_attempts_for_teacher(db, user.id)
+    variants = var_repo.list_variants(db, user.id)
+    if not variants:
+        get_or_create_default_variant(db, user.id)
+        db.commit()
+        variants = var_repo.list_variants(db, user.id)
     return templates.TemplateResponse(
         request,
         "teacher_dashboard.html",
-        {"user": user, "works": works, "attempts": attempts},
+        {
+            "user": user,
+            "works": works,
+            "attempts": attempts,
+            "variants": variants,
+        },
     )

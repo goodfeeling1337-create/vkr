@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy import select
@@ -12,6 +14,40 @@ from app.repositories import reference as ref_repo
 from app.services import template_service
 
 router = APIRouter()
+
+
+@router.get("/download/reference/{version_id}")
+async def download_reference_original(
+    version_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_login),
+) -> FileResponse:
+    """Исходный эталонный .xlsx. Студентам — только в режиме тренировки."""
+    ver = ref_repo.get_version(db, version_id)
+    if ver is None:
+        raise HTTPException(status_code=404, detail="Версия не найдена")
+    rw = ver.reference_work
+    if user.role.name == "student":
+        if not rw.is_published:
+            raise HTTPException(status_code=403, detail="Не опубликовано")
+        if user.mentor_teacher_id is not None and rw.teacher_id != user.mentor_teacher_id:
+            raise HTTPException(status_code=403, detail="Нет доступа")
+        mode = rw.variant.scoring_mode if rw.variant else "training"
+        if mode != "training":
+            raise HTTPException(
+                status_code=403,
+                detail="Эталон недоступен в режиме тестирования",
+            )
+    elif user.role.name == "teacher" and rw.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    path = Path(ver.storage_path)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Файл не найден на сервере")
+    return FileResponse(
+        path,
+        filename=ver.original_filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @router.get("/download/template/{version_id}")

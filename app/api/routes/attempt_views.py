@@ -14,6 +14,7 @@ from app.api.views import templates
 from app.db.session import get_db
 from app.models.orm import CheckRun, User
 from app.repositories import attempts as att_repo
+from app.services.report_public import student_testing_report_view
 from app.training_hints import CODE_TRAINING_HINTS, TASK_TRAINING_HINTS
 
 router = APIRouter()
@@ -48,6 +49,7 @@ async def teacher_attempt(
             "scoring_mode": scoring_mode,
             "training_task_hints": TASK_TRAINING_HINTS,
             "code_training_hints": CODE_TRAINING_HINTS,
+            "feedback_restricted": False,
         },
     )
 
@@ -68,6 +70,8 @@ async def student_attempt_view(
     report = json.loads(cr.report_json) if cr else {}
     rw = att.reference_version.reference_work
     scoring_mode = rw.variant.scoring_mode if rw.variant else "training"
+    if scoring_mode == "testing":
+        report = student_testing_report_view(report)
     return templates.TemplateResponse(
         request,
         "attempt_detail.html",
@@ -79,5 +83,6 @@ async def student_attempt_view(
             "scoring_mode": scoring_mode,
             "training_task_hints": TASK_TRAINING_HINTS,
             "code_training_hints": CODE_TRAINING_HINTS,
+            "feedback_restricted": scoring_mode == "testing",
         },
     )

@@ -22,6 +22,7 @@ from app.repositories import reference as ref_repo
 from app.repositories.attempts import create_attempt
 from app.services import file_storage
 from app.services.reference_access import ensure_student_may_submit_version
+from app.services.submission_policy import validate_submission_allowed
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,8 @@ def process_student_submission(
 
     ver = ensure_student_may_submit_version(db, student, resolved_id)
     reference_version_id = ver.id
+
+    validate_submission_allowed(db, student=student, ver=ver)
 
     rw = ver.reference_work
     allow_junction = rw.variant.allow_optional_pure_junction if rw and rw.variant else fallback_allow_optional_pure

@@ -3,23 +3,30 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{% block title %}Проверка нормализации БД{% endblock %}</title>
+  <title>{% block title %}NormChecker{% endblock %} · Нормализация БД</title>
   <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">Нормализация БД</a>
-    <nav>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="{% if user is defined and user %}{% if user.role.name == 'teacher' %}/teacher{% elif user.role.name == 'student' %}/student{% else %}/{% endif %}{% else %}/{% endif %}">
+      <span class="brand-mark">NC</span>
+      <span class="brand-text">NormChecker</span>
+    </a>
+    <nav class="topbar-nav">
       {% if user is defined and user %}
-        <span class="who">{{ user.username }} ({{ user.role.name }})</span>
-        <a href="/logout">Выход</a>
+        <span class="pill pill-muted">{{ user.display_name or user.username }}</span>
+        <span class="role-pill role-{{ user.role.name }}">{{ user.role.name }}</span>
+        <a class="nav-link" href="/logout">Выход</a>
       {% endif %}
     </nav>
   </div>
 </header>
-<main class="wrap">
+<main class="wrap main-pad">
   {% block content %}{% endblock %}
 </main>
+<footer class="site-footer">
+  <div class="wrap">NormChecker · автоматическая проверка заданий по нормализации БД</div>
+</footer>
 </body>
 </html>

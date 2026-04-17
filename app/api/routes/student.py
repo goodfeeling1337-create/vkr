@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from collections import Counter
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
@@ -12,13 +13,150 @@ from app.api.deps import require_student
 from app.api.views import templates
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.models.orm import User
+from app.models.orm import ReferenceWork, User
 from app.repositories import attempts as att_repo
 from app.repositories import reference as ref_repo
 from app.services import attempt_service
 from app.services.reference_access import SubmissionNotAllowed
+from app.services.submission_policy import validate_submission_allowed
 
 router = APIRouter()
+
+
+def _student_dashboard_context(db: Session, user: User) -> dict:
+    works = ref_repo.published_works_for_student(db, user.mentor_teacher_id)
+    my_attempts = att_repo.list_attempts_for_student(db, user.id)
+    training = [w for w in works if w.variant and w.variant.scoring_mode == "training"]
+    testing = [w for w in works if w.variant and w.variant.scoring_mode == "testing"]
+    orphan = [w for w in works if w.variant is None]
+    cnt = Counter()
+    for a in my_attempts:
+        cnt[a.reference_version.reference_work_id] += 1
+    return {
+        "user": user,
+        "works": works,
+        "works_training": training + orphan,
+        "works_testing": testing,
+        "attempts": my_attempts,
+        "attempt_counts": dict(cnt),
+    }
+
+
+def _student_work_context(
+    db: Session,
+    user: User,
+    work: ReferenceWork,
+    *,
+    error: str | None = None,
+) -> dict[str, Any]:
+    attempts = att_repo.list_attempts_for_student_on_work(db, user.id, work.id)
+    best_score: float | None = None
+    best_max: float | None = None
+    attempt_rows: list[dict[str, Any]] = []
+    for a in attempts:
+        ts, ms = att_repo.latest_check_run_score(a)
+        if ts is not None and (best_score is None or ts > best_score):
+            best_score = ts
+            best_max = ms
+        attempt_rows.append({"attempt": a, "score": ts, "max_score": ms})
+    ver = work.latest_version
+    can_submit = True
+    submit_block_reason: str | None = None
+    if ver is None:
+        can_submit = False
+        submit_block_reason = "У работы нет загруженной версии эталона."
+    else:
+        try:
+            validate_submission_allowed(db, student=user, ver=ver)
+        except ValueError as e:
+            can_submit = False
+            submit_block_reason = str(e)
+    scoring_mode = work.variant.scoring_mode if work.variant else "training"
+    teacher_comments: list[dict[str, Any]] = []
+    for a in attempts:
+        rev = a.teacher_review
+        if not rev:
+            continue
+        for c in rev.comments:
+            teacher_comments.append(
+                {"body": c.body, "at": c.created_at, "attempt_id": a.id},
+            )
+    teacher_comments.sort(key=lambda x: x["at"], reverse=True)
+    return {
+        "user": user,
+        "work": work,
+        "attempts": attempts,
+        "attempt_rows": attempt_rows,
+        "best_score": best_score,
+        "best_max": best_max,
+        "latest_attempt": attempts[0] if attempts else None,
+        "can_submit": can_submit,
+        "submit_block_reason": submit_block_reason,
+        "scoring_mode": scoring_mode,
+        "reference_version_id": ver.id if ver else None,
+        "teacher_comments": teacher_comments,
+        "error": error,
+    }
+
+
+@router.get("/student/work/{work_id}", response_class=HTMLResponse)
+async def student_work_detail(
+    request: Request,
+    work_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_student),
+) -> HTMLResponse:
+    w = ref_repo.get_published_work_for_student(db, work_id, user.mentor_teacher_id)
+    if w is None:
+        raise HTTPException(status_code=404, detail="Работа не найдена или недоступна")
+    return templates.TemplateResponse(
+        request,
+        "student_work.html",
+        _student_work_context(db, user, w),
+    )
+
+
+@router.post("/student/work/{work_id}/submit")
+async def student_submit_for_work(
+    request: Request,
+    work_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_student),
+    upload: UploadFile = File(...),
+) -> Response:
+    w = ref_repo.get_published_work_for_student(db, work_id, user.mentor_teacher_id)
+    if w is None:
+        raise HTTPException(status_code=404, detail="Работа не найдена или недоступна")
+    ver = w.latest_version
+    data = await upload.read()
+    settings = get_settings()
+    ref_vid = ver.id if ver else None
+    try:
+        aid, _ = attempt_service.process_student_submission(
+            db,
+            student=user,
+            file_bytes=data,
+            original_filename=upload.filename or "work.xlsx",
+            reference_version_id=ref_vid,
+            fallback_allow_optional_pure=settings.allow_optional_pure_junction_relations,
+        )
+    except SubmissionNotAllowed as e:
+        ctx = _student_work_context(db, user, w, error=str(e))
+        return templates.TemplateResponse(
+            request,
+            "student_work.html",
+            ctx,
+            status_code=e.http_status,
+        )
+    except ValueError as e:
+        ctx = _student_work_context(db, user, w, error=str(e))
+        return templates.TemplateResponse(
+            request,
+            "student_work.html",
+            ctx,
+            status_code=400,
+        )
+    return RedirectResponse(f"/student/attempt/{aid}", status_code=302)
 
 
 @router.get("/student", response_class=HTMLResponse)
@@ -27,16 +165,10 @@ async def student_dashboard(
     db: Session = Depends(get_db),
     user: User = Depends(require_student),
 ) -> HTMLResponse:
-    works = ref_repo.published_works_for_student(db, user.mentor_teacher_id)
-    my_attempts = att_repo.list_attempts_for_student(db, user.id)
     return templates.TemplateResponse(
         request,
         "student_dashboard.html",
-        {
-            "user": user,
-            "works": works,
-            "attempts": my_attempts,
-        },
+        _student_dashboard_context(db, user),
     )
 
 
@@ -61,31 +193,21 @@ async def student_submit(
             fallback_allow_optional_pure=settings.allow_optional_pure_junction_relations,
         )
     except SubmissionNotAllowed as e:
-        works = ref_repo.published_works_for_student(db, user.mentor_teacher_id)
-        my_attempts = att_repo.list_attempts_for_student(db, user.id)
+        ctx = _student_dashboard_context(db, user)
+        ctx["error"] = str(e)
         return templates.TemplateResponse(
             request,
             "student_dashboard.html",
-            {
-                "user": user,
-                "works": works,
-                "attempts": my_attempts,
-                "error": str(e),
-            },
+            ctx,
             status_code=e.http_status,
         )
     except ValueError as e:
-        works = ref_repo.published_works_for_student(db, user.mentor_teacher_id)
-        my_attempts = att_repo.list_attempts_for_student(db, user.id)
+        ctx = _student_dashboard_context(db, user)
+        ctx["error"] = str(e)
         return templates.TemplateResponse(
             request,
             "student_dashboard.html",
-            {
-                "user": user,
-                "works": works,
-                "attempts": my_attempts,
-                "error": str(e),
-            },
+            ctx,
             status_code=400,
         )
     return RedirectResponse(f"/student/attempt/{aid}", status_code=302)

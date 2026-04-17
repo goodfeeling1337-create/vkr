@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.orm import ReferenceWork, ReferenceWorkVersion, StudentAttempt, TeacherReview
@@ -61,8 +61,65 @@ def list_attempts_for_student(db: Session, student_id: int) -> list[StudentAttem
         db.execute(
             select(StudentAttempt)
             .where(StudentAttempt.student_id == student_id)
+            .options(
+                joinedload(StudentAttempt.reference_version)
+                .joinedload(ReferenceWorkVersion.reference_work)
+                .joinedload(ReferenceWork.variant),
+            )
             .order_by(StudentAttempt.id.desc()),
         )
         .scalars()
+        .unique()
         .all(),
     )
+
+
+def list_attempts_for_student_on_work(
+    db: Session,
+    student_id: int,
+    reference_work_id: int,
+) -> list[StudentAttempt]:
+    return list(
+        db.execute(
+            select(StudentAttempt)
+            .join(ReferenceWorkVersion, StudentAttempt.reference_version_id == ReferenceWorkVersion.id)
+            .where(
+                StudentAttempt.student_id == student_id,
+                ReferenceWorkVersion.reference_work_id == reference_work_id,
+            )
+            .options(
+                joinedload(StudentAttempt.check_runs),
+                joinedload(StudentAttempt.teacher_review).options(
+                    selectinload(TeacherReview.comments),
+                    selectinload(TeacherReview.files),
+                ),
+            )
+            .order_by(StudentAttempt.id.desc()),
+        )
+        .scalars()
+        .unique()
+        .all(),
+    )
+
+
+def latest_check_run_score(attempt: StudentAttempt) -> tuple[float | None, float | None]:
+    """Последний автопроверочный прогон: (total_score, max_score)."""
+    runs = sorted(attempt.check_runs, key=lambda r: r.id, reverse=True)
+    if not runs:
+        return None, None
+    cr = runs[0]
+    return cr.total_score, cr.max_score
+
+
+def count_attempts_for_student_on_work(db: Session, student_id: int, reference_work_id: int) -> int:
+    """Все попытки по любой версии данной работы."""
+    n = db.scalar(
+        select(func.count())
+        .select_from(StudentAttempt)
+        .join(ReferenceWorkVersion, StudentAttempt.reference_version_id == ReferenceWorkVersion.id)
+        .where(
+            StudentAttempt.student_id == student_id,
+            ReferenceWorkVersion.reference_work_id == reference_work_id,
+        ),
+    )
+    return int(n or 0)

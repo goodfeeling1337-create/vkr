@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -15,12 +16,39 @@ from app.db.session import get_db
 from app.models.orm import User
 from app.repositories import attempts as att_repo
 from app.repositories import reference as ref_repo
+from app.repositories import variants as var_repo
 from app.repositories.variants import get_or_create_default_variant
 from app.services import reference_service
+from app.services.work_analytics import analytics_for_reference_work
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _render_upload_error(
+    request: Request,
+    db: Session,
+    user: User,
+    message: str,
+    *,
+    status: int = 400,
+) -> Response:
+    works = ref_repo.list_reference_works_for_teacher(db, user.id)
+    attempts = att_repo.list_attempts_for_teacher(db, user.id)
+    variants = var_repo.list_variants(db, user.id)
+    return templates.TemplateResponse(
+        request,
+        "teacher_dashboard.html",
+        {
+            "user": user,
+            "works": works,
+            "attempts": attempts,
+            "variants": variants,
+            "error": message,
+        },
+        status_code=status,
+    )
 
 
 @router.post("/teacher/reference/upload")
@@ -31,9 +59,20 @@ async def teacher_upload_reference(
     title: str = Form(...),
     upload: UploadFile = File(...),
     publish: Optional[str] = Form(None),
+    variant_id: Optional[str] = Form(None),
 ) -> Response:
     data = await upload.read()
-    v = get_or_create_default_variant(db, user.id)
+    v = None
+    if variant_id and str(variant_id).strip():
+        try:
+            vid = int(variant_id)
+        except ValueError:
+            return _render_upload_error(request, db, user, "Некорректный вариант")
+        v = var_repo.get_variant_for_teacher(db, vid, user.id)
+        if v is None:
+            return _render_upload_error(request, db, user, "Вариант не найден")
+    if v is None:
+        v = get_or_create_default_variant(db, user.id)
     try:
         reference_service.upload_new_reference(
             db,
@@ -46,19 +85,7 @@ async def teacher_upload_reference(
         )
     except ValueError as e:
         log.warning("upload failed: %s", e)
-        works = ref_repo.list_reference_works_for_teacher(db, user.id)
-        attempts = att_repo.list_attempts_for_teacher(db, user.id)
-        return templates.TemplateResponse(
-            request,
-            "teacher_dashboard.html",
-            {
-                "user": user,
-                "works": works,
-                "attempts": attempts,
-                "error": str(e),
-            },
-            status_code=400,
-        )
+        return _render_upload_error(request, db, user, str(e))
     return RedirectResponse("/teacher", status_code=302)
 
 
@@ -72,4 +99,46 @@ async def teacher_reference_detail(
     w = ref_repo.get_reference_work(db, work_id)
     if not w or w.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="Нет доступа")
-    return templates.TemplateResponse(request, "reference_detail.html", {"user": user, "work": w})
+    analytics = analytics_for_reference_work(db, work_id)
+    return templates.TemplateResponse(
+        request,
+        "reference_detail.html",
+        {
+            "user": user,
+            "work": w,
+            "analytics": analytics,
+        },
+    )
+
+
+@router.post("/teacher/reference/{work_id}/settings")
+async def teacher_reference_settings(
+    work_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+    max_attempts: Optional[str] = Form(None),
+    deadline_at: Optional[str] = Form(None),
+) -> RedirectResponse:
+    w = ref_repo.get_reference_work(db, work_id)
+    if not w or w.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    if max_attempts is not None and str(max_attempts).strip() != "":
+        try:
+            ma = int(max_attempts)
+            w.max_attempts = max(1, ma)
+        except ValueError:
+            w.max_attempts = None
+    else:
+        w.max_attempts = None
+
+    if deadline_at and str(deadline_at).strip():
+        raw = str(deadline_at).strip().replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(raw)
+            w.deadline_at = dt.replace(tzinfo=None) if dt.tzinfo else dt
+        except ValueError:
+            pass
+    else:
+        w.deadline_at = None
+    db.commit()
+    return RedirectResponse(f"/teacher/reference/{work_id}", status_code=302)

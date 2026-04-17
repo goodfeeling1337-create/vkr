@@ -1,54 +1,88 @@
 {% extends "base.html" %}
-{% block title %}Кабинет преподавателя{% endblock %}
+{% block title %}Панель преподавателя{% endblock %}
 {% block content %}
-<h1>Кабинет преподавателя</h1>
-{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<div class="page-head">
+  <h1>Панель преподавателя</h1>
+  <p class="lead">Варианты заданий, эталоны и попытки студентов — в одном месте.</p>
+  <p class="inline">
+    <a class="btn btn-secondary btn-sm" href="/teacher/variants">Варианты заданий</a>
+  </p>
+</div>
 
-<section class="card">
+{% if error %}<p class="err card">{{ error }}</p>{% endif %}
+
+<section class="card card-form">
   <h2>Загрузить эталон (.xlsx)</h2>
-  <form method="post" action="/teacher/reference/upload" enctype="multipart/form-data">
+  <form method="post" action="/teacher/reference/upload" enctype="multipart/form-data" class="form-grid">
     <label>Название работы <input name="title" required placeholder="Лабораторная 1"/></label>
+    <label>Вариант
+      <select name="variant_id">
+        {% for v in variants %}
+          <option value="{{ v.id }}">{{ v.name }} ({{ 'тренировка' if v.scoring_mode == 'training' else 'тестирование' }})</option>
+        {% endfor %}
+      </select>
+    </label>
     <label>Файл <input name="upload" type="file" accept=".xlsx" required/></label>
     <label class="inline"><input type="checkbox" name="publish"/> Опубликовать для студентов</label>
-    <button type="submit">Загрузить</button>
+    <button type="submit" class="btn btn-primary">Загрузить</button>
   </form>
 </section>
 
 <section class="card">
   <h2>Эталоны</h2>
   {% if works %}
-  <ul class="list">
-    {% for w in works %}
-      <li>
-        <a href="/teacher/reference/{{ w.id }}">{{ w.title }}</a>
-        — версий: {{ w.versions|length }}
-        {% if w.is_published %}<span class="ok">опубликовано</span>{% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>Эталонов пока нет.</p>
-  {% endif %}
-</section>
-
-<section class="card">
-  <h2>Последние попытки студентов</h2>
-  {% if attempts %}
   <table class="tbl">
-    <thead><tr><th>ID</th><th>Студент</th><th>Файл</th><th></th></tr></thead>
-    <tbody>
-    {% for a in attempts[:30] %}
+    <thead>
       <tr>
-        <td>{{ a.id }}</td>
-        <td>{{ a.student.username }}</td>
-        <td>{{ a.submitted_filename or "—" }}</td>
-        <td><a href="/teacher/attempt/{{ a.id }}">Открыть</a></td>
+        <th>Работа</th>
+        <th>Вариант</th>
+        <th>Версий</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for w in works %}
+      <tr>
+        <td><strong>{{ w.title }}</strong></td>
+        <td>
+          {% if w.variant %}
+            <span class="badge {% if w.variant.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
+              {{ 'Тренировка' if w.variant.scoring_mode == 'training' else 'Тестирование' }}
+            </span>
+            <span class="meta">{{ w.variant.name }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ w.versions|length }}</td>
+        <td>{% if w.is_published %}<span class="badge badge-published">Опубликовано</span>{% else %}<span class="meta">Черновик</span>{% endif %}</td>
+        <td class="tbl-actions"><a href="/teacher/reference/{{ w.id }}">Обзор →</a></td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p>Попыток пока нет.</p>
+  <p class="meta">Эталонов пока нет.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Последние попытки</h2>
+  {% if attempts %}
+  <table class="tbl">
+    <thead><tr><th>ID</th><th>Студент</th><th>Файл</th><th></th></tr></thead>
+    <tbody>
+    {% for a in attempts[:40] %}
+      <tr>
+        <td>#{{ a.id }}</td>
+        <td>{{ a.student.username }}</td>
+        <td>{{ a.submitted_filename or "—" }}</td>
+        <td class="tbl-actions"><a href="/teacher/attempt/{{ a.id }}">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="meta">Пока нет попыток.</p>
   {% endif %}
 </section>
 {% endblock %}

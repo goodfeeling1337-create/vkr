@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Варианты заданий{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Варианты заданий</h1>
+  <p class="lead">Каждый вариант задаёт режим проверки: тренировка (полная обратная связь) или тестирование.</p>
+</div>
+
+<section class="card card-form">
+  <h2>Новый вариант</h2>
+  <form method="post" action="/teacher/variants/new" class="form-grid">
+    <label>Название <input name="name" required placeholder="Например: ЛР1 — Кварплата"/></label>
+    <label>Режим по умолчанию
+      <select name="scoring_mode">
+        <option value="training">Тренировка</option>
+        <option value="testing">Тестирование</option>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Создать</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Ваши варианты</h2>
+  {% if stats %}
+  <div class="card-grid">
+    {% for row in stats %}
+    <div class="dash-card">
+      <div class="dash-card-head">
+        <span class="badge {% if row.variant.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
+          {{ 'Тренировка' if row.variant.scoring_mode == 'training' else 'Тестирование' }}
+        </span>
+      </div>
+      <h3>{{ row.variant.name }}</h3>
+      <p class="meta">slug: <code>{{ row.variant.slug }}</code></p>
+      <p class="stat-line">Работ (эталонов): <strong>{{ row.works_count }}</strong></p>
+      <form method="post" action="/teacher/variants/{{ row.variant.id }}/edit" class="stack">
+        <input type="text" name="name" value="{{ row.variant.name }}" placeholder="Название"/>
+        <select name="scoring_mode">
+          <option value="training" {% if row.variant.scoring_mode == 'training' %}selected{% endif %}>Тренировка</option>
+          <option value="testing" {% if row.variant.scoring_mode == 'testing' %}selected{% endif %}>Тестирование</option>
+        </select>
+        <button type="submit" class="btn btn-secondary btn-sm">Сохранить</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="meta">Пока нет вариантов — создайте первый.</p>
+  {% endif %}
+</section>
+
+<p><a href="/teacher" class="link-back">← К панели преподавателя</a></p>
+{% endblock %}

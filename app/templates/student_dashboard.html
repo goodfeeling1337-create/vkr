@@ -1,56 +1,61 @@
 {% extends "base.html" %}
-{% block title %}Кабинет студента{% endblock %}
+{% block title %}Мои задания{% endblock %}
 {% block content %}
-<h1>Кабинет студента</h1>
-{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<div class="page-head">
+  <h1>Мои задания</h1>
+  <p class="lead">Скачайте шаблон, выполните работу и загрузите ответ. Режим <strong>тренировки</strong> даёт полную обратную связь и эталон; в режиме <strong>тестирования</strong> доступ ограничен.</p>
+</div>
 
-<section class="card">
-  <h2>Доступные шаблоны</h2>
-  {% if works %}
-  <table class="tbl">
-    <thead><tr><th>Работа</th><th>Версия</th><th></th></tr></thead>
-    <tbody>
-    {% for w in works %}
-      {% set ver = w.versions|sort(attribute='version_number')|last %}
-      <tr>
-        <td>{{ w.title }}</td>
-        <td>{{ ver.version_number if ver else "—" }}</td>
-        <td>
-          {% if ver %}
-            <a href="/download/template/{{ ver.id }}">Скачать шаблон</a>
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Нет опубликованных эталонов.</p>
-  {% endif %}
-</section>
+{% if error %}<p class="err card">{{ error }}</p>{% endif %}
 
-<section class="card">
-  <h2>Отправить выполненную работу</h2>
-  <form method="post" action="/student/submit" enctype="multipart/form-data">
-    <label>Файл (.xlsx) <input name="upload" type="file" accept=".xlsx" required/></label>
-    <label>ID версии эталона (если метаданные в файле повреждены)
-      <input name="reference_version_id" type="number" placeholder="например 1"/>
-    </label>
-    <button type="submit">Отправить на проверку</button>
-  </form>
-  <p class="hint">Обычно версию указывать не нужно — она берётся из скрытых метаданных шаблона.</p>
-</section>
+{% macro work_card(w) %}
+<div class="work-card">
+  <div class="work-card-head">
+    <h3>{{ w.title }}</h3>
+    <span class="badge {% if w.variant and w.variant.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
+      {{ 'Тренировка' if w.variant and w.variant.scoring_mode == 'training' else 'Тестирование' }}
+    </span>
+  </div>
+  {% if w.variant %}<p class="meta">Вариант: {{ w.variant.name }}</p>{% endif %}
+  <p class="meta">Преподаватель: {{ w.teacher.username }}</p>
+  {% set ac = attempt_counts.get(w.id, {}) %}
+  <p class="meta">Попыток: {{ ac.count or 0 }}{% if w.max_attempts %} / {{ w.max_attempts }} макс.{% endif %}</p>
+  {% if w.deadline_at %}<p class="meta">Дедлайн: {{ w.deadline_at.strftime('%d.%m.%Y %H:%M') }}</p>{% endif %}
+  <div class="work-card-actions">
+    <a class="btn btn-secondary btn-sm" href="/download/template/{{ w.latest_version_id }}">Шаблон</a>
+    {% if w.variant and w.variant.scoring_mode == 'training' %}
+      <a class="btn btn-secondary btn-sm" href="/download/reference/{{ w.latest_version_id }}">Эталон</a>
+    {% else %}
+      <span class="btn btn-secondary btn-sm btn-disabled" title="В режиме тестирования эталон недоступен">Эталон недоступен</span>
+    {% endif %}
+    <a class="btn btn-primary btn-sm" href="/student/work/{{ w.id }}">Открыть работу</a>
+  </div>
+</div>
+{% endmacro %}
 
-<section class="card">
-  <h2>Мои попытки</h2>
-  {% if attempts %}
-  <ul class="list">
-    {% for a in attempts %}
-      <li><a href="/student/attempt/{{ a.id }}">Попытка #{{ a.id }}</a> — {{ a.submitted_filename or "файл" }}</li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>Пока нет попыток.</p>
-  {% endif %}
+{% if works_training %}
+<section class="section-block">
+  <h2 class="section-title"><span class="badge badge-training">Тренировка</span> Полная обратная связь</h2>
+  <p class="section-desc">Можно скачать эталон и получить детальный отчёт с ошибками и подсказками.</p>
+  <div class="work-grid">
+    {% for w in works_training %}{{ work_card(w) }}{% endfor %}
+  </div>
 </section>
+{% endif %}
+
+{% if works_testing %}
+<section class="section-block">
+  <h2 class="section-title"><span class="badge badge-testing">Тестирование</span> Ограниченная обратная связь</h2>
+  <p class="section-desc">Эталон скрыт; после проверки вы увидите только итоговый балл и краткую сводку — без деталей, раскрывающих ответ.</p>
+  <div class="work-grid">
+    {% for w in works_testing %}{{ work_card(w) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if not works_training and not works_testing %}
+<section class="card empty-state">
+  <p>Нет опубликованных работ. Когда преподаватель опубликует задание, оно появится здесь.</p>
+</section>
+{% endif %}
 {% endblock %}
