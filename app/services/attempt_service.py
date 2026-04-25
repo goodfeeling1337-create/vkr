@@ -71,7 +71,9 @@ def process_student_submission(
     validate_submission_allowed(db, student=student, ver=ver)
 
     rw = ver.reference_work
-    allow_junction = rw.variant.allow_optional_pure_junction if rw and rw.variant else fallback_allow_optional_pure
+    allow_junction = (
+        rw.allow_optional_pure_junction if rw is not None else fallback_allow_optional_pure
+    )
 
     payloads = ref_repo.task_payloads_for_version(db, reference_version_id)
     ref_payloads = {int(k): v for k, v in payloads.items()}
@@ -101,7 +103,7 @@ def process_student_submission(
         reference_version_id=reference_version_id,
         filename=original_filename,
     )
-    sm = rw.variant.scoring_mode if rw and rw.variant else "training"
+    sm = rw.scoring_mode if rw is not None else "training"
     cr = CheckRun(
         attempt_id=att.id,
         scoring_mode=sm,

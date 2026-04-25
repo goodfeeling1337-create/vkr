@@ -22,7 +22,7 @@ def materialize_student_template(db: Session, reference_version_id: int) -> tupl
     meta = TemplateMetadata(
         template_id=str(uuid.uuid4()),
         template_version=1,
-        variant_id=rw.variant_id,
+        variant_id=None,
         reference_work_id=rw.id,
         reference_version_id=ver.id,
     )

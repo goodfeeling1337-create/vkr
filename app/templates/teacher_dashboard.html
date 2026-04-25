@@ -43,11 +43,9 @@
       <tr>
         <td><strong>{{ w.title }}</strong></td>
         <td>
-          {% if w.variant %}
-            <span class="badge {% if w.variant.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
-              {{ 'Тренировка' if w.variant.scoring_mode == 'training' else 'Тестирование' }}
-            </span>
-          {% else %}—{% endif %}
+          <span class="badge {% if w.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
+            {{ 'Тренировка' if w.scoring_mode == 'training' else 'Тестирование' }}
+          </span>
         </td>
         <td>{{ w.versions|length }}</td>
         <td>{% if w.is_published %}<span class="badge badge-published">Опубликовано</span>{% else %}<span class="meta">Черновик</span>{% endif %}</td>

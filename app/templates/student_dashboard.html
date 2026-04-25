@@ -12,8 +12,8 @@
 <div class="work-card">
   <div class="work-card-head">
     <h3>{{ w.title }}</h3>
-    <span class="badge {% if w.variant and w.variant.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
-      {{ 'Тренировка' if w.variant and w.variant.scoring_mode == 'training' else 'Тестирование' }}
+    <span class="badge {% if w.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
+      {{ 'Тренировка' if w.scoring_mode == 'training' else 'Тестирование' }}
     </span>
   </div>
   <p class="meta">Преподаватель: {{ w.teacher.username }}</p>
@@ -27,7 +27,7 @@
       <span class="btn btn-secondary btn-sm btn-disabled" title="Эталон ещё не загружен">Шаблон недоступен</span>
     {% endif %}
     {% if w.latest_version_id %}
-      {% if w.variant and w.variant.scoring_mode == 'training' %}
+      {% if w.scoring_mode == 'training' %}
         <a class="btn btn-secondary btn-sm" href="/download/reference/{{ w.latest_version_id }}">Эталон</a>
       {% else %}
         <span class="btn btn-secondary btn-sm btn-disabled" title="В режиме тестирования эталон недоступен">Эталон недоступен</span>

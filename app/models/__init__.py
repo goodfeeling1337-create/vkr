@@ -14,14 +14,12 @@ from app.models.orm import (
     TeacherReviewFile,
     UploadedFileRegistry,
     User,
-    Variant,
 )
 
 __all__ = [
     "AttemptFileKind",
     "Role",
     "User",
-    "Variant",
     "ReferenceWork",
     "ReferenceWorkVersion",
     "ReferenceTaskAnswer",

@@ -13,7 +13,6 @@ def list_reference_works_for_teacher(db: Session, teacher_id: int) -> list[Refer
             .where(ReferenceWork.teacher_id == teacher_id)
             .options(
                 joinedload(ReferenceWork.versions),
-                joinedload(ReferenceWork.variant),
             )
             .order_by(ReferenceWork.id.desc()),
         )
@@ -28,7 +27,6 @@ def get_reference_work(db: Session, work_id: int) -> ReferenceWork | None:
         select(ReferenceWork)
         .options(
             joinedload(ReferenceWork.versions),
-            joinedload(ReferenceWork.variant),
             joinedload(ReferenceWork.teacher),
         )
         .where(ReferenceWork.id == work_id),
@@ -40,7 +38,7 @@ def get_version(db: Session, version_id: int) -> ReferenceWorkVersion | None:
         select(ReferenceWorkVersion)
         .options(
             joinedload(ReferenceWorkVersion.task_answers),
-            joinedload(ReferenceWorkVersion.reference_work).joinedload(ReferenceWork.variant),
+            joinedload(ReferenceWorkVersion.reference_work),
         )
         .where(ReferenceWorkVersion.id == version_id),
     ).unique().scalar_one_or_none()
@@ -66,7 +64,6 @@ def published_works_for_student(db: Session, mentor_teacher_id: int | None) -> l
         .where(ReferenceWork.is_published.is_(True))
         .options(
             joinedload(ReferenceWork.versions),
-            joinedload(ReferenceWork.variant),
             joinedload(ReferenceWork.teacher),
         )
     )

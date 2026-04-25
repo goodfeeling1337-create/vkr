@@ -33,8 +33,7 @@ def get_attempt_detail(db: Session, attempt_id: int) -> StudentAttempt | None:
         .options(
             joinedload(StudentAttempt.student),
             joinedload(StudentAttempt.reference_version)
-            .joinedload(ReferenceWorkVersion.reference_work)
-            .joinedload(ReferenceWork.variant),
+            .joinedload(ReferenceWorkVersion.reference_work),
             joinedload(StudentAttempt.teacher_review).options(
                 selectinload(TeacherReview.comments),
                 selectinload(TeacherReview.files),
@@ -63,8 +62,7 @@ def list_attempts_for_student(db: Session, student_id: int) -> list[StudentAttem
             .where(StudentAttempt.student_id == student_id)
             .options(
                 joinedload(StudentAttempt.reference_version)
-                .joinedload(ReferenceWorkVersion.reference_work)
-                .joinedload(ReferenceWork.variant),
+                .joinedload(ReferenceWorkVersion.reference_work),
             )
             .order_by(StudentAttempt.id.desc()),
         )

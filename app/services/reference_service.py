@@ -61,17 +61,21 @@ def upload_new_reference(
     db: Session,
     *,
     teacher_id: int,
-    variant_id: int,
+    scoring_mode: str,
     title: str,
     file_bytes: bytes,
     original_filename: str,
     publish: bool,
 ) -> ReferenceWorkVersion:
+    settings = get_settings()
+    if scoring_mode not in ("training", "testing"):
+        scoring_mode = "training"
     rw = ReferenceWork(
         teacher_id=teacher_id,
-        variant_id=variant_id,
         title=title,
         is_published=publish,
+        scoring_mode=scoring_mode,
+        allow_optional_pure_junction=settings.allow_optional_pure_junction_relations,
     )
     db.add(rw)
     db.flush()

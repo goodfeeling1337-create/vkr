@@ -12,7 +12,6 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,10 +44,6 @@ class User(Base):
     mentor_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     role: Mapped[Role] = relationship(back_populates="users")
-    variants: Mapped[list[Variant]] = relationship(
-        back_populates="teacher",
-        foreign_keys="Variant.teacher_id",
-    )
     reference_works: Mapped[list[ReferenceWork]] = relationship(back_populates="teacher")
     student_attempts: Mapped[list[StudentAttempt]] = relationship(
         back_populates="student",
@@ -56,41 +51,22 @@ class User(Base):
     )
 
 
-class Variant(Base):
-    """Служебная привязка режима (training/testing) к эталону; строка в `variants`, FK из `reference_work`."""
-
-    __tablename__ = "variants"
-    __table_args__ = (UniqueConstraint("teacher_id", "slug", name="uq_variant_teacher_slug"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    slug: Mapped[str] = mapped_column(String(64), nullable=False)
-    scoring_mode: Mapped[str] = mapped_column(String(32), default="training")  # training | testing
-    allow_optional_pure_junction: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    teacher: Mapped[User] = relationship(
-        back_populates="variants",
-        foreign_keys=[teacher_id],
-    )
-    reference_works: Mapped[list[ReferenceWork]] = relationship(back_populates="variant")
-
-
 class ReferenceWork(Base):
     __tablename__ = "reference_work"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    variant_id: Mapped[int] = mapped_column(ForeignKey("variants.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Режим для студента: training | testing
+    scoring_mode: Mapped[str] = mapped_column(String(32), default="training")
+    allow_optional_pure_junction: Mapped[bool] = mapped_column(Boolean, default=True)
     # Лимит попыток на студента по этой работе (все версии); None = без лимита
     max_attempts: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     deadline_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     teacher: Mapped[User] = relationship(back_populates="reference_works")
-    variant: Mapped[Variant] = relationship(back_populates="reference_works")
     versions: Mapped[list[ReferenceWorkVersion]] = relationship(
         back_populates="reference_work",
         order_by="ReferenceWorkVersion.version_number",

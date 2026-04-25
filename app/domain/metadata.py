@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class TemplateMetadata(BaseModel):
@@ -11,7 +11,8 @@ class TemplateMetadata(BaseModel):
 
     template_id: str
     template_version: int = 1
-    variant_id: int
+    # У старых шаблонов в файле может быть число; для новых не используется.
+    variant_id: Optional[int] = None
     reference_work_id: int
     reference_version_id: int
     mode: Literal["student_template"] = "student_template"

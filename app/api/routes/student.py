@@ -37,13 +37,13 @@ def _handle_submission_error(
 def _student_dashboard_context(db: Session, user: User) -> dict:
     works = ref_repo.published_works_for_student(db, user.mentor_teacher_id)
     my_attempts = att_repo.list_attempts_for_student(db, user.id)
-    training = [w for w in works if w.variant and w.variant.scoring_mode == "training"]
-    testing = [w for w in works if w.variant and w.variant.scoring_mode == "testing"]
-    orphan = [w for w in works if w.variant is None]
+    training = [w for w in works if w.scoring_mode == "training"]
+    testing = [w for w in works if w.scoring_mode == "testing"]
+    other = [w for w in works if w.scoring_mode not in ("training", "testing")]
     return {
         "user": user,
         "works": works,
-        "works_training": training + orphan,
+        "works_training": training + other,
         "works_testing": testing,
         "attempts": my_attempts,
         "attempt_counts": att_repo.count_attempts_per_work(db, user.id),
@@ -79,7 +79,7 @@ def _student_work_context(
         except ValueError as e:
             can_submit = False
             submit_block_reason = str(e)
-    scoring_mode = work.variant.scoring_mode if work.variant else "training"
+    scoring_mode = work.scoring_mode
     teacher_comments: list[dict[str, Any]] = []
     for a in attempts:
         rev = a.teacher_review

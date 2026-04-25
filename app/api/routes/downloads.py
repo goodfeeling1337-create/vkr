@@ -32,7 +32,7 @@ async def download_reference_original(
             raise HTTPException(status_code=403, detail="Не опубликовано")
         if user.mentor_teacher_id is not None and rw.teacher_id != user.mentor_teacher_id:
             raise HTTPException(status_code=403, detail="Нет доступа")
-        mode = rw.variant.scoring_mode if rw.variant else "training"
+        mode = rw.scoring_mode
         if mode != "training":
             raise HTTPException(
                 status_code=403,

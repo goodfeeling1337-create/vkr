@@ -16,7 +16,6 @@ from app.db.session import get_db
 from app.models.orm import User
 from app.repositories import attempts as att_repo
 from app.repositories import reference as ref_repo
-from app.repositories.variants import get_or_create_variant_for_scoring_mode
 from app.services import reference_service
 from app.services.file_storage import read_upload_with_size_limit
 from app.services.work_analytics import analytics_for_reference_work
@@ -63,12 +62,11 @@ async def teacher_upload_reference(
         data = await read_upload_with_size_limit(upload, label="эталон")
     except ValueError as e:
         return _render_upload_error(request, db, user, str(e))
-    v = get_or_create_variant_for_scoring_mode(db, user.id, scoring_mode)
     try:
         reference_service.upload_new_reference(
             db,
             teacher_id=user.id,
-            variant_id=v.id,
+            scoring_mode=scoring_mode,
             title=title,
             file_bytes=data,
             original_filename=upload.filename or "reference.xlsx",

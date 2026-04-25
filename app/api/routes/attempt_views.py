@@ -37,7 +37,7 @@ async def teacher_attempt(
         select(CheckRun).where(CheckRun.attempt_id == att.id).order_by(CheckRun.id.desc()),
     ).scalar_one_or_none()
     report = json.loads(cr.report_json) if cr else {}
-    scoring_mode = rw.variant.scoring_mode if rw.variant else "training"
+    scoring_mode = rw.scoring_mode
     return templates.TemplateResponse(
         request,
         "attempt_detail.html",
@@ -69,7 +69,7 @@ async def student_attempt_view(
     ).scalar_one_or_none()
     report = json.loads(cr.report_json) if cr else {}
     rw = att.reference_version.reference_work
-    scoring_mode = rw.variant.scoring_mode if rw.variant else "training"
+    scoring_mode = rw.scoring_mode
     if scoring_mode == "testing":
         report = student_testing_report_view(report)
     return templates.TemplateResponse(
