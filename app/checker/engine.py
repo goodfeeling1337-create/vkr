@@ -21,6 +21,7 @@ from app.checker.common.parse_sections import build_parsed_workbook
 from app.checker.common.workbook_validator import WorkbookValidator
 from app.checker.normalizers import normalize_attribute_name
 from app.checker.reference_compiler import matrix_from_workbook
+from app.checker.cross_task_checks import run_cross_task_checks  # NEW: cross-task checks
 from app.checker.result_enrichment import enrich_task_result, finalize_report_semantics
 from app.checker.scoring import AUTO_CHECKED_TASKS, MANUAL_ONLY_TASKS, max_score_for_task, total_max_score
 from app.domain.check_results import CheckReport, TaskCheckResult, TaskStatus
@@ -264,6 +265,7 @@ def run_check(
     report.total_score = total
     report.max_score = total_max_score()
 
+    run_cross_task_checks(report)  # NEW: cross-task consistency checks
     finalize_report_semantics(report)
     return report
 

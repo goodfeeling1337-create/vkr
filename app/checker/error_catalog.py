@@ -316,6 +316,223 @@ def _catalog() -> list[TypicalError]:
             student_explanation="Сверьтесь с порядком шагов в методичке.",
             teacher_explanation="Низкий recall/precision при семантическом сходстве.",
         ),
+        # NEW: EXAMPLE_VIOLATES_FD
+        TypicalError(
+            code="EXAMPLE_VIOLATES_FD",
+            title="Контрольный пример нарушает ФЗ",
+            description="Данные таблицы задания 1 нарушают функциональные зависимости, указанные в задании 4.",
+            task_numbers=(1,),
+            category=ErrorCategory.semantic,
+            recognition_criterion="Для ФЗ LHS→RHS из задания 4 есть строки задания 1 с одинаковым LHS и разным RHS.",
+            example="Одно значение ключевого атрибута связано с разными значениями зависимого.",
+            student_explanation=(
+                "Данные контрольного примера нарушают функциональные зависимости: для одного "
+                "значения левой части зависимости встречается более одного значения правой части. "
+                "Проверьте, что пример согласован с указанными ФЗ."
+            ),
+            teacher_explanation=(
+                "Пример не является корректным экземпляром отношения: нарушена ФЗ. "
+                "Строки с одинаковым значением левой части имеют разные значения правой части."
+            ),
+        ),
+        # NEW: EXAMPLE_ALREADY_NORMALIZED
+        TypicalError(
+            code="EXAMPLE_ALREADY_NORMALIZED",
+            title="Контрольный пример уже нормализован",
+            description="Число строк в 1НФ не превышает число строк исходного отношения — пример не требует нормализации.",
+            task_numbers=(1,),
+            category=ErrorCategory.semantic,
+            recognition_criterion="len(task3.rows) <= len(task1.rows) при непустых данных.",
+            example="Строк в 1НФ столько же или меньше, чем в исходной таблице.",
+            student_explanation=(
+                "Контрольный пример не содержит повторяющихся групп: число строк в 1НФ "
+                "не превышает число строк исходного отношения. Убедитесь, что исходные данные "
+                "действительно требуют нормализации."
+            ),
+            teacher_explanation=(
+                "Пример не демонстрирует необходимость нормализации: количество строк "
+                "исходного отношения >= количества строк 1НФ."
+            ),
+        ),
+        # NEW: NF1_RELATION_NAME_MISMATCH_TASK1
+        TypicalError(
+            code="NF1_RELATION_NAME_MISMATCH_TASK1",
+            title="Имя 1НФ не совпадает с именем исходного отношения",
+            description="Название отношения в задании 3 не совпадает с именем исходного отношения из задания 1.",
+            task_numbers=(3,),
+            category=ErrorCategory.structural,
+            recognition_criterion="normalize(task3.relation) != normalize(task1.relation).",
+            example="Задание 1: R1, задание 3: R.",
+            student_explanation=(
+                "Имя отношения в задании 3 не совпадает с именем исходного отношения "
+                "из задания 1. Название таблицы 1НФ должно совпадать с исходным отношением."
+            ),
+            teacher_explanation=(
+                "Кросс-проверка задания 3 и задания 1: имена отношений расходятся."
+            ),
+        ),
+        # NEW: NF1_GROUPS_NOT_ELIMINATED
+        TypicalError(
+            code="NF1_GROUPS_NOT_ELIMINATED",
+            title="1НФ не устраняет повторяющиеся группы",
+            description="Число строк в 1НФ не больше числа строк исходного отношения при наличии повторяющихся групп.",
+            task_numbers=(3,),
+            category=ErrorCategory.semantic,
+            recognition_criterion="len(task3.rows) <= len(task1.rows) при наличии групп в задании 2.",
+            example="Строк в 1НФ не стало больше, хотя повторяющиеся группы присутствуют.",
+            student_explanation=(
+                "При устранении повторяющихся групп число строк в таблице должно увеличиться. "
+                "Убедитесь, что каждое повторяющееся значение вынесено в отдельную строку."
+            ),
+            teacher_explanation=(
+                "Кросс-проверка: строк в 1НФ <= строк в исходном отношении "
+                "при наличии повторяющихся групп. Повторяющиеся группы не раскрыты."
+            ),
+        ),
+        # NEW: PARTIAL_FD_COUNT_MISMATCH
+        TypicalError(
+            code="PARTIAL_FD_COUNT_MISMATCH",
+            title="Число частичных ФЗ не совпадает с ожидаемым",
+            description="Число элементарных частичных ФЗ в задании 6 не соответствует числу ФЗ из задания 4 с LHS, пересекающимся с PK.",
+            task_numbers=(6,),
+            category=ErrorCategory.methodical,
+            recognition_criterion="count(task6_elementary) != expected (ФЗ task4: LHS∩PK≠∅, LHS⊄PK).",
+            example="Указано 3 частичных ФЗ, ожидалось 2.",
+            student_explanation=(
+                "Число частичных ФЗ не соответствует ожидаемому. "
+                "Частичные ФЗ — это только те зависимости из задания 4, у которых левая "
+                "часть является частью первичного ключа (но не всем ключом)."
+            ),
+            teacher_explanation=(
+                "Арифметическая проверка: число элементарных ФЗ в задании 6 "
+                "не равно числу ФЗ задания 4 с LHS∩PK≠∅ и LHS⊄PK."
+            ),
+        ),
+        # NEW: PARTIAL_FD_NOT_FROM_KEY_PART
+        TypicalError(
+            code="PARTIAL_FD_NOT_FROM_KEY_PART",
+            title="Частичная ФЗ не зависит от части ключа",
+            description="Хотя бы одна ФЗ в задании 6 имеет LHS, ни один атрибут которой не входит в первичный ключ.",
+            task_numbers=(6,),
+            category=ErrorCategory.semantic,
+            recognition_criterion="Для некоторой FD в task6: LHS ∩ pk_attrs = ∅.",
+            example="FD D→E в задании 6, но D не входит в PK.",
+            student_explanation=(
+                "Одна из зависимостей не является частичной: ни один атрибут левой части "
+                "не входит в первичный ключ. Частичные ФЗ должны зависеть от части ключа."
+            ),
+            teacher_explanation=(
+                "В задании 6 обнаружена ФЗ, LHS которой не пересекается с PK. "
+                "Вероятно, студент отнёс транзитивную зависимость к частичным."
+            ),
+        ),
+        # NEW: TRANSITIVE_FD_COUNT_MISMATCH
+        TypicalError(
+            code="TRANSITIVE_FD_COUNT_MISMATCH",
+            title="Число транзитивных ФЗ не соответствует ожидаемому",
+            description="count(task8) != count(task4) - count(task6) по элементарным ФЗ.",
+            task_numbers=(8,),
+            category=ErrorCategory.methodical,
+            recognition_criterion="len(task8_elementary) != len(task4_elementary) - len(task6_elementary).",
+            example="task4=5, task6=2, ожидается task8=3, а указано 4.",
+            student_explanation=(
+                "Число транзитивных ФЗ не соответствует ожидаемому. "
+                "Сумма частичных и транзитивных ФЗ должна совпадать с общим числом ФЗ "
+                "из задания 4."
+            ),
+            teacher_explanation=(
+                "Арифметическая проверка заданий 4, 6, 8: "
+                "count(task4) - count(task6) != count(task8)."
+            ),
+        ),
+        # NEW: FD_DISPLAY_ORDER_WRONG
+        TypicalError(
+            code="FD_DISPLAY_ORDER_WRONG",
+            title="Неверный порядок записи зависимостей в группе",
+            description="Первая ФЗ в группе не является объемлющей (должна идти первой).",
+            task_numbers=(7, 9),
+            category=ErrorCategory.methodical,
+            recognition_criterion="В группе первая ФЗ — компонент цепочки, а не объемлющая.",
+            example="Записаны A→B, B→C, A→C вместо A→C, A→B, B→C.",
+            student_explanation=(
+                "Запись зависимостей должна начинаться с объемлющей (внешней) зависимости, "
+                "которая является следствием всей цепочки. Например, для цепочки A→B→C "
+                "сначала пишется A→C, затем A→B и B→C."
+            ),
+            teacher_explanation=(
+                "Нарушен порядок отображения: объемлющая ФЗ должна быть на первом месте в каждой группе."
+            ),
+        ),
+        # NEW: NESTED_TRANSITIVE_GROUP_COUNT
+        TypicalError(
+            code="NESTED_TRANSITIVE_GROUP_COUNT",
+            title="Неверное число групп вложенных транзитивных ФЗ",
+            description="Число групп ФЗ в задании 9 не равно 2 × число транзитивных цепочек из задания 8.",
+            task_numbers=(9,),
+            category=ErrorCategory.methodical,
+            recognition_criterion="groups != 2 × chains.",
+            example="2 цепочки → ожидается 4 группы, указано 2.",
+            student_explanation=(
+                "Для каждой транзитивной цепочки нужно указать две группы: объемлющую "
+                "зависимость и составляющие её цепочкой."
+            ),
+            teacher_explanation=(
+                "Число групп в задании 9 не равно 2 × число цепочек из задания 8."
+            ),
+        ),
+        # NEW: SCHEMA_2NF_TABLE_COUNT_MISMATCH
+        TypicalError(
+            code="SCHEMA_2NF_TABLE_COUNT_MISMATCH",
+            title="Неверное число таблиц в 2НФ",
+            description="Число таблиц в задании 11 не равно числу частичных ФЗ + 1.",
+            task_numbers=(11,),
+            category=ErrorCategory.methodical,
+            recognition_criterion="count(task11.relations) != count(task6_elementary) + 1.",
+            example="2 частичных ФЗ → ожидается 3 таблицы, указано 2.",
+            student_explanation=(
+                "Число таблиц в 2НФ не соответствует ожидаемому. "
+                "Должно быть по одной таблице на каждую частичную ФЗ плюс одна основная таблица."
+            ),
+            teacher_explanation=(
+                "Арифметическая проверка: count(task11.relations) != count(task6_elementary) + 1."
+            ),
+        ),
+        # NEW: SCHEMA_2NF_ROOT_NAME_MISMATCH
+        TypicalError(
+            code="SCHEMA_2NF_ROOT_NAME_MISMATCH",
+            title="Основная таблица 2НФ не имеет имени исходного отношения",
+            description="Ни одна таблица в задании 11 не называется так же, как исходное отношение из задания 1.",
+            task_numbers=(11,),
+            category=ErrorCategory.structural,
+            recognition_criterion="normalize(task1.relation) ∉ {normalize(r.name) for r in task11.relations}.",
+            example="Исходное отношение R1, но в 2НФ нет таблицы R1.",
+            student_explanation=(
+                "Основная таблица в 2НФ должна называться так же, как исходное отношение "
+                "из задания 1. Ни одна из таблиц не имеет этого имени."
+            ),
+            teacher_explanation=(
+                "Кросс-проверка: имя исходного отношения (задание 1) отсутствует среди "
+                "имён таблиц задания 11."
+            ),
+        ),
+        # NEW: SCHEMA_3NF_ROOT_NAME_MISMATCH
+        TypicalError(
+            code="SCHEMA_3NF_ROOT_NAME_MISMATCH",
+            title="Основная таблица 3НФ не имеет имени исходного отношения",
+            description="Ни одна таблица в задании 13 не называется так же, как исходное отношение из задания 1.",
+            task_numbers=(13,),
+            category=ErrorCategory.structural,
+            recognition_criterion="normalize(task1.relation) ∉ {normalize(r.name) for r in task13.relations}.",
+            example="Исходное отношение R1, но в 3НФ нет таблицы R1.",
+            student_explanation=(
+                "Основная таблица в 3НФ должна называться так же, как исходное отношение "
+                "из задания 1. Ни одна из таблиц не имеет этого имени."
+            ),
+            teacher_explanation=(
+                "Кросс-проверка: имя исходного отношения (задание 1) отсутствует среди "
+                "имён таблиц задания 13."
+            ),
+        ),
     ]
 
 
