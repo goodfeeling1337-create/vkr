@@ -24,6 +24,7 @@ class TaskCheckResult:
     parsed_answer: Any = None
     expected_answer_snapshot: Any = None
     human_message: str | None = None
+    error_kind: str | None = None  # structured error classification, set by check_taskN
     # Смысловая оценка и типовые ошибки (ВКР: шкала ++/+-/-+/--, каталог)
     semantic_mark: str | None = None
     semantic_mark_explanation: str | None = None

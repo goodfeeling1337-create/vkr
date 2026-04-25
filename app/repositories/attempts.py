@@ -111,6 +111,17 @@ def latest_check_run_score(attempt: StudentAttempt) -> tuple[float | None, float
     return cr.total_score, cr.max_score
 
 
+def count_attempts_per_work(db: Session, student_id: int) -> dict[int, int]:
+    """Количество попыток по каждой работе для студента (все версии)."""
+    rows = db.execute(
+        select(ReferenceWorkVersion.reference_work_id, func.count().label("cnt"))
+        .join(StudentAttempt, StudentAttempt.reference_version_id == ReferenceWorkVersion.id)
+        .where(StudentAttempt.student_id == student_id)
+        .group_by(ReferenceWorkVersion.reference_work_id),
+    ).all()
+    return {r.reference_work_id: r.cnt for r in rows}
+
+
 def count_attempts_for_student_on_work(db: Session, student_id: int, reference_work_id: int) -> int:
     """Все попытки по любой версии данной работы."""
     n = db.scalar(

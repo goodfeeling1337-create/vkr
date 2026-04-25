@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -23,22 +22,30 @@ from app.services.submission_policy import validate_submission_allowed
 router = APIRouter()
 
 
+def _handle_submission_error(
+    request: Request,
+    exc: Exception,
+    template_name: str,
+    ctx: dict[str, Any],
+    status_code: int,
+) -> Response:
+    ctx["error"] = str(exc)
+    return templates.TemplateResponse(request, template_name, ctx, status_code=status_code)
+
+
 def _student_dashboard_context(db: Session, user: User) -> dict:
     works = ref_repo.published_works_for_student(db, user.mentor_teacher_id)
     my_attempts = att_repo.list_attempts_for_student(db, user.id)
     training = [w for w in works if w.variant and w.variant.scoring_mode == "training"]
     testing = [w for w in works if w.variant and w.variant.scoring_mode == "testing"]
     orphan = [w for w in works if w.variant is None]
-    cnt = Counter()
-    for a in my_attempts:
-        cnt[a.reference_version.reference_work_id] += 1
     return {
         "user": user,
         "works": works,
         "works_training": training + orphan,
         "works_testing": testing,
         "attempts": my_attempts,
-        "attempt_counts": dict(cnt),
+        "attempt_counts": att_repo.count_attempts_per_work(db, user.id),
     }
 
 
@@ -141,21 +148,9 @@ async def student_submit_for_work(
             fallback_allow_optional_pure=settings.allow_optional_pure_junction_relations,
         )
     except SubmissionNotAllowed as e:
-        ctx = _student_work_context(db, user, w, error=str(e))
-        return templates.TemplateResponse(
-            request,
-            "student_work.html",
-            ctx,
-            status_code=e.http_status,
-        )
+        return _handle_submission_error(request, e, "student_work.html", _student_work_context(db, user, w), e.http_status)
     except ValueError as e:
-        ctx = _student_work_context(db, user, w, error=str(e))
-        return templates.TemplateResponse(
-            request,
-            "student_work.html",
-            ctx,
-            status_code=400,
-        )
+        return _handle_submission_error(request, e, "student_work.html", _student_work_context(db, user, w), 400)
     return RedirectResponse(f"/student/attempt/{aid}", status_code=302)
 
 
@@ -193,21 +188,7 @@ async def student_submit(
             fallback_allow_optional_pure=settings.allow_optional_pure_junction_relations,
         )
     except SubmissionNotAllowed as e:
-        ctx = _student_dashboard_context(db, user)
-        ctx["error"] = str(e)
-        return templates.TemplateResponse(
-            request,
-            "student_dashboard.html",
-            ctx,
-            status_code=e.http_status,
-        )
+        return _handle_submission_error(request, e, "student_dashboard.html", _student_dashboard_context(db, user), e.http_status)
     except ValueError as e:
-        ctx = _student_dashboard_context(db, user)
-        ctx["error"] = str(e)
-        return templates.TemplateResponse(
-            request,
-            "student_dashboard.html",
-            ctx,
-            status_code=400,
-        )
+        return _handle_submission_error(request, e, "student_dashboard.html", _student_dashboard_context(db, user), 400)
     return RedirectResponse(f"/student/attempt/{aid}", status_code=302)

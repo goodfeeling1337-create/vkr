@@ -88,20 +88,11 @@ def process_student_submission(
         metadata_resolution=metadata_tag,
     )
 
-    path = file_storage.store_upload(file_bytes, "attempt", original_filename)
     att = create_attempt(
         db,
         student_id=student.id,
         reference_version_id=reference_version_id,
         filename=original_filename,
-    )
-    db.add(
-        StudentAttemptFile(
-            attempt_id=att.id,
-            kind=AttemptFileKind.student_upload,
-            storage_path=str(path),
-            original_name=original_filename,
-        ),
     )
     sm = rw.variant.scoring_mode if rw and rw.variant else "training"
     cr = CheckRun(
@@ -130,6 +121,17 @@ def process_student_submission(
                 },
             ),
         )
+    db.commit()
+
+    path = file_storage.store_upload(file_bytes, "attempt", original_filename)
+    db.add(
+        StudentAttemptFile(
+            attempt_id=att.id,
+            kind=AttemptFileKind.student_upload,
+            storage_path=str(path),
+            original_name=original_filename,
+        ),
+    )
     db.commit()
     db.refresh(att)
     db.refresh(cr)

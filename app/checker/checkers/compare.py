@@ -9,18 +9,24 @@ from app.domain.check_results import TaskCheckResult, TaskStatus
 
 def check_task1(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     errs: list[str] = []
+    error_kind: str | None = None
     if normalize_attribute_name(ref.get("relation", "")) != normalize_attribute_name(stu.get("relation", "")):
         errs.append("Название исходного отношения не совпадает с эталоном")
+        error_kind = "relation_name"
     rh = [normalize_attribute_name(x) for x in ref.get("headers", [])]
     sh = [normalize_attribute_name(x) for x in stu.get("headers", [])]
     if rh != sh:
         errs.append("Заголовки атрибутов не совпадают с эталоном")
+        if error_kind is None:
+            error_kind = "headers"
     rr = sorted(ref.get("rows", []))
     sr = sorted(stu.get("rows", []))
     if rr != sr:
         errs.append("Набор строк не совпадает с эталоном (мультимножество строк)")
+        if error_kind is None:
+            error_kind = "rows"
     ok = len(errs) == 0
-    return TaskCheckResult(
+    result = TaskCheckResult(
         1,
         TaskStatus.correct if ok else TaskStatus.wrong,
         1.0 if ok else 0.0,
@@ -30,20 +36,27 @@ def check_task1(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
         expected_answer_snapshot=ref,
         human_message=None,
     )
+    result.error_kind = error_kind
+    return result
 
 
 def check_task2(ref: dict[str, Any], stu: dict[str, Any], attr_vocab: set[str]) -> TaskCheckResult:
     rg = ref.get("groups", [])
     sg = stu.get("groups", [])
     errs: list[str] = []
+    error_kind: str | None = None
     for g in sg:
         for a in g:
             if a not in attr_vocab:
                 errs.append(f"Неизвестный атрибут в группе: {a}")
+                if error_kind is None:
+                    error_kind = "unknown_attr"
     if sorted(rg) != sorted(sg):
         errs.append("Набор групп повторяющихся атрибутов не совпадает с эталоном")
+        if error_kind is None:
+            error_kind = "groups_mismatch"
     ok = len(errs) == 0
-    return TaskCheckResult(
+    result = TaskCheckResult(
         2,
         TaskStatus.correct if ok else TaskStatus.wrong,
         1.0 if ok else 0.0,
@@ -52,6 +65,8 @@ def check_task2(ref: dict[str, Any], stu: dict[str, Any], attr_vocab: set[str]) 
         parsed_answer=stu,
         expected_answer_snapshot=ref,
     )
+    result.error_kind = error_kind
+    return result
 
 
 def _key_unique(rows: list[tuple[str, ...]], key_idx: list[int]) -> bool:
@@ -66,30 +81,40 @@ def _key_unique(rows: list[tuple[str, ...]], key_idx: list[int]) -> bool:
 
 def check_task3(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     errs: list[str] = []
+    error_kind: str | None = None
     rel_r = normalize_attribute_name(str(ref.get("relation", "") or ""))
     rel_s = normalize_attribute_name(str(stu.get("relation", "") or ""))
     if rel_r and rel_s and rel_r != rel_s:
         errs.append("Название отношения в задании 3 не совпадает с эталоном")
+        error_kind = "relation_name"
     # Если в эталоне есть строка с названием, а у студента она опущена — не штрафуем при совпадении таблицы
     if [normalize_attribute_name(x) for x in ref.get("headers", [])] != [
         normalize_attribute_name(x) for x in stu.get("headers", [])
     ]:
         errs.append("Заголовки столбцов 1НФ не совпадают с эталоном")
+        if error_kind is None:
+            error_kind = "headers"
     rk = [normalize_attribute_name(x) for x in ref.get("key_attributes", [])]
     sk = [normalize_attribute_name(x) for x in stu.get("key_attributes", [])]
     if sorted(rk) != sorted(sk):
         errs.append("Ключевые атрибуты 1НФ не совпадают с эталоном")
+        if error_kind is None:
+            error_kind = "key_attributes"
     rr = ref.get("rows", [])
     sr = stu.get("rows", [])
     if sorted(rr) != sorted(sr):
         errs.append("Строки данных 1НФ не совпадают с эталоном (мультимножество строк)")
+        if error_kind is None:
+            error_kind = "rows"
     hdrs = [normalize_attribute_name(x) for x in stu.get("headers", [])]
     key_idx = [i for i, h in enumerate(hdrs) if h in set(sk)]
     if hdrs and key_idx and sr:
         if not _key_unique(sr, key_idx):
             errs.append("Указанный ключ 1НФ не уникализирует строки таблицы (есть дубликаты по ключу)")
+            if error_kind is None:
+                error_kind = "key_not_unique"
     ok = len(errs) == 0
-    return TaskCheckResult(
+    result = TaskCheckResult(
         3,
         TaskStatus.correct if ok else TaskStatus.wrong,
         1.0 if ok else 0.0,
@@ -98,6 +123,8 @@ def check_task3(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
         parsed_answer=stu,
         expected_answer_snapshot=ref,
     )
+    result.error_kind = error_kind
+    return result
 
 
 def check_task4(ref: dict[str, Any], stu: dict[str, Any], vocab: set[str]) -> TaskCheckResult:
@@ -138,13 +165,17 @@ def check_task5(
     rp = {normalize_attribute_name(x) for x in ref.get("pk_attributes", [])}
     sp = {normalize_attribute_name(x) for x in stu.get("pk_attributes", [])}
     errs: list[str] = []
+    error_kind: str | None = None
     if rp != sp:
         if sp and rp and sp < rp:
             errs.append("Неполный первичный ключ: не хватает атрибутов по сравнению с эталоном.")
+            error_kind = "incomplete"
         elif sp and rp and rp < sp:
             errs.append("Избыточный первичный ключ: лишние атрибуты относительно эталона.")
+            error_kind = "redundant"
         else:
             errs.append("Множество атрибутов первичного ключа не совпадает с эталоном.")
+            error_kind = "mismatch"
     if task3_ref and task3_stu:
         # Soft cross-check: student key should uniquely identify rows in student's table
         hdr = [normalize_attribute_name(x) for x in task3_stu.get("headers", [])]
@@ -153,8 +184,10 @@ def check_task5(
         if hdr and idxs and rows:
             if not _key_unique(rows, idxs):
                 errs.append("По данным задания 3 выбранный ключ логически не уникализирует строки (есть дубликаты по ключу).")
+                if error_kind is None:
+                    error_kind = "not_unique_on_rows"
     ok = len(errs) == 0
-    return TaskCheckResult(
+    result = TaskCheckResult(
         5,
         TaskStatus.correct if ok else TaskStatus.wrong,
         1.0 if ok else 0.0,
@@ -163,6 +196,8 @@ def check_task5(
         parsed_answer=stu,
         expected_answer_snapshot=ref,
     )
+    result.error_kind = error_kind
+    return result
 
 
 def check_task6(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:

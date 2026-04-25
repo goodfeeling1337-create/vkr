@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from app.checker.checkers.compare import (
     check_task1,
@@ -41,6 +41,36 @@ from app.checker.parsers import (
 from openpyxl.workbook.workbook import Workbook
 
 log = logging.getLogger(__name__)
+
+
+def _set_parse_error(
+    report: CheckReport,
+    n: int,
+    max_s: float,
+    human_msg_suffix: str,
+    *,
+    errors: list[str],
+    reference_payloads: dict[int, Any],
+    allow_optional_pure_junction: bool,
+) -> None:
+    """Set a parse_error TaskCheckResult and enrich it. Eliminates repeated boilerplate."""
+    tr = TaskCheckResult(
+        n,
+        TaskStatus.parse_error,
+        0.0,
+        max_s,
+        errors=errors,
+        human_message=f"Не удалось распознать ответ по заданию {n}: {human_msg_suffix}",
+    )
+    report.task_results[n] = tr
+    if n in AUTO_CHECKED_TASKS:
+        enrich_task_result(
+            n,
+            tr,
+            ref_payload=reference_payloads.get(n, {}),
+            stu_payload={},
+            allow_optional_pure_junction=allow_optional_pure_junction,
+        )
 
 
 def _attr_vocab(task1: dict[str, Any] | None) -> set[str]:
@@ -135,65 +165,32 @@ def run_check(
                     human_message="Проверяется преподавателем",
                 )
                 continue
-            refp = reference_payloads.get(n, {})
-            report.task_results[n] = TaskCheckResult(
-                n,
-                TaskStatus.parse_error,
-                0.0,
-                max_s,
+            _set_parse_error(
+                report, n, max_s, "секция отсутствует",
                 errors=["Секция не найдена"],
-                human_message=f"Не удалось распознать ответ по заданию {n}: секция отсутствует",
+                reference_payloads=reference_payloads,
+                allow_optional_pure_junction=allow_optional_pure_junction,
             )
-            if n in AUTO_CHECKED_TASKS:
-                enrich_task_result(
-                    n,
-                    report.task_results[n],
-                    ref_payload=refp,
-                    stu_payload={},
-                    allow_optional_pure_junction=allow_optional_pure_junction,
-                )
             continue
         fn = parsers_map[n]
         try:
             pr = fn(parsed.sections[n])
         except Exception as exc:  # noqa: BLE001
             log.exception("parser crash task %s: %s", n, exc)
-            refp = reference_payloads.get(n, {})
-            report.task_results[n] = TaskCheckResult(
-                n,
-                TaskStatus.parse_error,
-                0.0,
-                max_s,
+            _set_parse_error(
+                report, n, max_s, "ошибка разбора",
                 errors=[f"Ошибка парсера: {exc}"],
-                human_message=f"Не удалось распознать ответ по заданию {n}: ошибка разбора",
+                reference_payloads=reference_payloads,
+                allow_optional_pure_junction=allow_optional_pure_junction,
             )
-            if n in AUTO_CHECKED_TASKS:
-                enrich_task_result(
-                    n,
-                    report.task_results[n],
-                    ref_payload=refp,
-                    stu_payload={},
-                    allow_optional_pure_junction=allow_optional_pure_junction,
-                )
             continue
         if not pr.ok:
-            refp = reference_payloads.get(n, {})
-            report.task_results[n] = TaskCheckResult(
-                n,
-                TaskStatus.parse_error,
-                0.0,
-                max_s,
+            _set_parse_error(
+                report, n, max_s, pr.error or "ошибка разбора",
                 errors=[pr.error or "parse error"],
-                human_message=f"Не удалось распознать ответ по заданию {n}: {pr.error}",
+                reference_payloads=reference_payloads,
+                allow_optional_pure_junction=allow_optional_pure_junction,
             )
-            if n in AUTO_CHECKED_TASKS:
-                enrich_task_result(
-                    n,
-                    report.task_results[n],
-                    ref_payload=refp,
-                    stu_payload={},
-                    allow_optional_pure_junction=allow_optional_pure_junction,
-                )
             continue
         payload = pr.value or {}
         if n == 3:
@@ -212,29 +209,23 @@ def run_check(
             continue
         if n not in AUTO_CHECKED_TASKS:
             continue
+        checkers_map: dict[int, Callable[..., TaskCheckResult]] = {
+            1: lambda ref, stu: check_task1(ref, stu),
+            2: lambda ref, stu: check_task2(ref, stu, vocab),
+            3: lambda ref, stu: check_task3(ref, stu),
+            4: lambda ref, stu: check_task4(ref, stu, vocab),
+            5: lambda ref, stu: check_task5(ref, stu, ref3, stu3),
+            6: lambda ref, stu: check_task6(ref, stu),
+            7: lambda ref, stu: check_task7(ref, stu),
+            8: lambda ref, stu: check_task8(ref, stu),
+            9: lambda ref, stu: check_task9(ref, stu),
+            11: lambda ref, stu: check_task11(ref, stu, allow_optional_pure_junction),
+            13: lambda ref, stu: check_task13(ref, stu, allow_optional_pure_junction),
+        }
         try:
-            if n == 1:
-                tr = check_task1(refp, payload)
-            elif n == 2:
-                tr = check_task2(refp, payload, vocab)
-            elif n == 3:
-                tr = check_task3(refp, payload)
-            elif n == 4:
-                tr = check_task4(refp, payload, vocab)
-            elif n == 5:
-                tr = check_task5(refp, payload, ref3, stu3)
-            elif n == 6:
-                tr = check_task6(refp, payload)
-            elif n == 7:
-                tr = check_task7(refp, payload)
-            elif n == 8:
-                tr = check_task8(refp, payload)
-            elif n == 9:
-                tr = check_task9(refp, payload)
-            elif n == 11:
-                tr = check_task11(refp, payload, allow_optional_pure_junction)
-            elif n == 13:
-                tr = check_task13(refp, payload, allow_optional_pure_junction)
+            checker = checkers_map.get(n)
+            if checker is not None:
+                tr = checker(refp, payload)
             else:
                 tr = TaskCheckResult(n, TaskStatus.wrong, 0.0, max_s, errors=["unsupported"])
         except Exception as exc:  # noqa: BLE001

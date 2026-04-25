@@ -107,9 +107,9 @@ def enrich_task_result(
         tr.semantic_mark_explanation = gb.explanation
 
     elif task_number in TABLE_TASK1:
-        combined = " ".join(tr.errors or [])
-        table_gap_kind: str | None = None
-        if combined:
+        table_gap_kind: str | None = tr.error_kind
+        if table_gap_kind is None and tr.errors:
+            combined = " ".join(tr.errors)
             if "Название исходного отношения" in combined:
                 table_gap_kind = "relation_name"
             elif "Заголовки атрибутов" in combined:
@@ -127,9 +127,9 @@ def enrich_task_result(
             "note": "Задание 1: исходное отношение и таблица.",
         }
     elif task_number in GROUP_TASK2:
-        combined = " ".join(tr.errors or [])
-        group_issue: str | None = None
-        if combined:
+        group_issue: str | None = tr.error_kind
+        if group_issue is None and tr.errors:
+            combined = " ".join(tr.errors)
             if "Неизвестный атрибут в группе" in combined:
                 group_issue = "unknown_attr"
             elif "Набор групп повторяющихся" in combined:
@@ -145,9 +145,9 @@ def enrich_task_result(
             "note": "Задание 2: повторяющиеся группы атрибутов.",
         }
     elif task_number in NF1_TASK3:
-        combined = " ".join(tr.errors or [])
-        nf1_issue_kind: str | None = None
-        if combined:
+        nf1_issue_kind: str | None = tr.error_kind
+        if nf1_issue_kind is None and tr.errors:
+            combined = " ".join(tr.errors)
             if "Название отношения в задании 3" in combined:
                 nf1_issue_kind = "relation_name"
             elif "Заголовки столбцов 1НФ" in combined:
@@ -169,9 +169,9 @@ def enrich_task_result(
             "note": "Задание 3: таблица в 1НФ.",
         }
     elif task_number == 5:
-        combined = " ".join(tr.errors or [])
-        pk_kind: str | None = None
-        if combined:
+        pk_kind: str | None = tr.error_kind
+        if pk_kind is None and tr.errors:
+            combined = " ".join(tr.errors)
             if "Неполный первичный ключ" in combined:
                 pk_kind = "incomplete"
             elif "Избыточный первичный ключ" in combined:
