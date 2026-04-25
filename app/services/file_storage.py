@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from app.core.config import get_settings
+
+if TYPE_CHECKING:
+    from fastapi import UploadFile
 
 
 def resolve_path_under_upload_dir(path: str | Path, *, root: Path | None = None) -> Path:
@@ -40,3 +44,30 @@ def store_upload(data: bytes, prefix: str, original_name: str) -> Path:
     path = settings.upload_dir / name
     path.write_bytes(data)
     return path
+
+
+async def read_upload_with_size_limit(
+    upload: "UploadFile",
+    *,
+    label: str = "файл",
+    chunk_size: int = 1024 * 1024,
+) -> bytes:
+    """
+    Reads UploadFile in chunks and stops as soon as size limit is exceeded.
+    """
+    limit = get_settings().max_upload_size_bytes
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(chunk_size)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            mb = limit // (1024 * 1024)
+            raise ValueError(
+                f"Размер {label} превышает допустимый лимит ({mb} МБ). "
+                "Загрузите файл меньшего размера."
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
