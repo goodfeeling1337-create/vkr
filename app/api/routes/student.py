@@ -176,7 +176,12 @@ async def student_submit(
     reference_version_id: Optional[str] = Form(None),
 ) -> Response:
     data = await upload.read()
-    rv = int(reference_version_id) if reference_version_id else None
+    rv: int | None = None
+    if reference_version_id and reference_version_id.strip():
+        try:
+            rv = int(reference_version_id.strip())
+        except ValueError:
+            rv = None
     settings = get_settings()
     try:
         aid, _ = attempt_service.process_student_submission(

@@ -84,5 +84,6 @@ async def student_attempt_view(
             "training_task_hints": TASK_TRAINING_HINTS,
             "code_training_hints": CODE_TRAINING_HINTS,
             "feedback_restricted": scoring_mode == "testing",
+            "work_id": att.reference_version.reference_work.id,
         },
     )

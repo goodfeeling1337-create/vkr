@@ -16,7 +16,10 @@
   <button type="submit">Загрузить</button>
 </form>
 {% else %}
-<p><a href="/student">← Назад</a></p>
+<p><a class="link-back"
+      href="{% if work_id %}/student/work/{{ work_id }}{% else %}/student{% endif %}">
+  ← К работе
+</a></p>
 {% endif %}
 
 {% if attempt.teacher_review and attempt.teacher_review.comments %}

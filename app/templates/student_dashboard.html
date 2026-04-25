@@ -18,15 +18,21 @@
   </div>
   {% if w.variant %}<p class="meta">Вариант: {{ w.variant.name }}</p>{% endif %}
   <p class="meta">Преподаватель: {{ w.teacher.username }}</p>
-  {% set ac = attempt_counts.get(w.id, {}) %}
-  <p class="meta">Попыток: {{ ac.count or 0 }}{% if w.max_attempts %} / {{ w.max_attempts }} макс.{% endif %}</p>
+  {% set ac = attempt_counts.get(w.id, 0) %}
+  <p class="meta">Попыток: {{ ac }}{% if w.max_attempts %} / {{ w.max_attempts }} макс.{% endif %}</p>
   {% if w.deadline_at %}<p class="meta">Дедлайн: {{ w.deadline_at.strftime('%d.%m.%Y %H:%M') }}</p>{% endif %}
   <div class="work-card-actions">
-    <a class="btn btn-secondary btn-sm" href="/download/template/{{ w.latest_version_id }}">Шаблон</a>
-    {% if w.variant and w.variant.scoring_mode == 'training' %}
-      <a class="btn btn-secondary btn-sm" href="/download/reference/{{ w.latest_version_id }}">Эталон</a>
+    {% if w.latest_version_id %}
+      <a class="btn btn-secondary btn-sm" href="/download/template/{{ w.latest_version_id }}">Шаблон</a>
     {% else %}
-      <span class="btn btn-secondary btn-sm btn-disabled" title="В режиме тестирования эталон недоступен">Эталон недоступен</span>
+      <span class="btn btn-secondary btn-sm btn-disabled" title="Эталон ещё не загружен">Шаблон недоступен</span>
+    {% endif %}
+    {% if w.latest_version_id %}
+      {% if w.variant and w.variant.scoring_mode == 'training' %}
+        <a class="btn btn-secondary btn-sm" href="/download/reference/{{ w.latest_version_id }}">Эталон</a>
+      {% else %}
+        <span class="btn btn-secondary btn-sm btn-disabled" title="В режиме тестирования эталон недоступен">Эталон недоступен</span>
+      {% endif %}
     {% endif %}
     <a class="btn btn-primary btn-sm" href="/student/work/{{ w.id }}">Открыть работу</a>
   </div>

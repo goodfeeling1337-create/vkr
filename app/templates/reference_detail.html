@@ -1,8 +1,67 @@
 {% extends "base.html" %}
 {% block title %}{{ work.title }}{% endblock %}
 {% block content %}
-<h1>{{ work.title }}</h1>
+<div style="display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap">
+  <h1>{{ work.title }}</h1>
+  <form method="post"
+        action="/teacher/reference/{{ work.id }}/publish"
+        style="display:inline">
+    {% if work.is_published %}
+      <button type="submit" class="btn btn-secondary btn-sm">Снять с публикации</button>
+    {% else %}
+      <button type="submit" class="btn btn-primary btn-sm">Опубликовать</button>
+    {% endif %}
+  </form>
+</div>
 <p><a href="/teacher">← Назад</a></p>
+<section class="card">
+  <h2>Настройки сдачи</h2>
+  <form method="post"
+        action="/teacher/reference/{{ work.id }}/settings"
+        class="form-grid">
+    <label>Лимит попыток на студента
+      <input type="number" name="max_attempts" min="1"
+             placeholder="Без ограничений"
+             value="{{ work.max_attempts if work.max_attempts is not none else '' }}"/>
+      <span class="meta">Оставьте пустым — без ограничений</span>
+    </label>
+    <label>Дедлайн сдачи
+      <input type="datetime-local" name="deadline_at"
+             value="{{ work.deadline_at.strftime('%Y-%m-%dT%H:%M') if work.deadline_at else '' }}"/>
+      <span class="meta">Оставьте пустым — без дедлайна</span>
+    </label>
+    <button type="submit" class="btn btn-primary">Сохранить настройки</button>
+  </form>
+  {% if work.max_attempts or work.deadline_at %}
+  <p class="meta" style="margin-top:0.75rem">
+    Текущие ограничения:
+    {% if work.max_attempts %}лимит {{ work.max_attempts }} попыток{% endif %}
+    {% if work.max_attempts and work.deadline_at %} · {% endif %}
+    {% if work.deadline_at %}дедлайн {{ work.deadline_at.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+  </p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Попытки студентов</h2>
+  {% if analytics.attempts_total > 0 %}
+  <p class="meta">
+    Всего попыток: <strong>{{ analytics.attempts_total }}</strong> ·
+    Уникальных студентов: <strong>{{ analytics.students_distinct }}</strong>
+    {% if analytics.avg_score is not none %}
+      · Средний балл: <strong>{{ analytics.avg_score | round(2) }}</strong>
+    {% endif %}
+  </p>
+  <p>
+    <a class="btn btn-secondary btn-sm" href="/teacher">
+      Посмотреть попытки на дашборде →
+    </a>
+  </p>
+  {% else %}
+  <p class="meta">Попыток пока нет.</p>
+  {% endif %}
+</section>
+
 <section class="card">
   <h2>Версии</h2>
   <table class="tbl">

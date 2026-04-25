@@ -142,3 +142,17 @@ async def teacher_reference_settings(
         w.deadline_at = None
     db.commit()
     return RedirectResponse(f"/teacher/reference/{work_id}", status_code=302)
+
+
+@router.post("/teacher/reference/{work_id}/publish")
+async def teacher_reference_toggle_publish(
+    work_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_teacher),
+) -> RedirectResponse:
+    w = ref_repo.get_reference_work(db, work_id)
+    if not w or w.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    w.is_published = not w.is_published
+    db.commit()
+    return RedirectResponse(f"/teacher/reference/{work_id}", status_code=302)
