@@ -10,9 +10,7 @@
       {{ 'Тренировка' if scoring_mode == 'training' else 'Тестирование' }}
     </span>
   </div>
-  <p class="lead">Преподаватель: <strong>{{ work.teacher.username }}</strong>
-    {% if work.variant %} · вариант: {{ work.variant.name }}{% endif %}
-  </p>
+  <p class="lead">Преподаватель: <strong>{{ work.teacher.username }}</strong></p>
 </div>
 
 {% if scoring_mode == 'testing' %}

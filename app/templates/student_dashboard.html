@@ -16,7 +16,6 @@
       {{ 'Тренировка' if w.variant and w.variant.scoring_mode == 'training' else 'Тестирование' }}
     </span>
   </div>
-  {% if w.variant %}<p class="meta">Вариант: {{ w.variant.name }}</p>{% endif %}
   <p class="meta">Преподаватель: {{ w.teacher.username }}</p>
   {% set ac = attempt_counts.get(w.id, 0) %}
   <p class="meta">Попыток: {{ ac }}{% if w.max_attempts %} / {{ w.max_attempts }} макс.{% endif %}</p>

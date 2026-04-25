@@ -57,7 +57,7 @@ class User(Base):
 
 
 class Variant(Base):
-    """Teacher-defined bucket (e.g. lab variant) with scoring defaults."""
+    """Служебная привязка режима (training/testing) к эталону; строка в `variants`, FK из `reference_work`."""
 
     __tablename__ = "variants"
     __table_args__ = (UniqueConstraint("teacher_id", "slug", name="uq_variant_teacher_slug"),)
