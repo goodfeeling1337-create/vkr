@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request, Response
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user_optional
 from app.api.session import sign_user_id
 from app.api.views import templates
+from app.core.auth_bruteforce import clear_failed_logins, get_retry_after_seconds, record_failed_login
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.core.security import verify_password
@@ -17,6 +19,7 @@ from app.models.orm import User
 from app.repositories.users import get_user_by_username
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -46,14 +49,35 @@ async def login_post(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ) -> Response:
+    ip = request.client.host if request.client and request.client.host else "unknown"
+    retry_after = get_retry_after_seconds(username, ip)
+    if retry_after > 0:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "user": None,
+                "error": f"Слишком много попыток входа. Повторите через {retry_after} сек.",
+            },
+            status_code=429,
+        )
+
     u = get_user_by_username(db, username)
     if not u or not verify_password(password, u.password_hash):
+        blocked_after = record_failed_login(username, ip)
+        log.warning(
+            "failed login attempt username=%s ip=%s blocked_after=%ss",
+            username,
+            ip,
+            blocked_after,
+        )
         return templates.TemplateResponse(
             request,
             "login.html",
             {"user": None, "error": "Неверный логин или пароль"},
             status_code=401,
         )
+    clear_failed_logins(username, ip)
     settings = get_settings()
     token = sign_user_id(u.id)
     resp = RedirectResponse("/", status_code=302)
