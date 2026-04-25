@@ -12,7 +12,10 @@ from app.core.csrf import (
     validate_csrf_token,
 )
 
-_EXEMPT_PATHS: set[str] = set()
+# POST /login: нельзя вызывать request.form() до роутера — иначе тело часто не доходит
+# до Form(...) и в браузере появляется 422 (missing username/password).
+# Login CSRF здесь сознательно не проверяем (см. OWASP: низкий приоритет относительно CSRF после входа).
+_EXEMPT_PATHS: frozenset[str] = frozenset({"/login"})
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
 
