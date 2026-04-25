@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 
@@ -33,6 +34,7 @@ def validate_upload_size(data: bytes, *, label: str = "файл") -> None:
 
 
 def store_upload(data: bytes, prefix: str, original_name: str) -> Path:
+    """Legacy helper: writes file directly to final path."""
     settings = get_settings()
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     ext = Path(original_name).suffix or ".bin"
@@ -40,3 +42,32 @@ def store_upload(data: bytes, prefix: str, original_name: str) -> Path:
     path = settings.upload_dir / name
     path.write_bytes(data)
     return path
+
+
+def store_upload_temp(data: bytes, prefix: str, original_name: str) -> tuple[Path, Path]:
+    """
+    Writes to a temp path first and returns (temp_path, final_path).
+    Caller must finalize or discard temp file.
+    """
+    settings = get_settings()
+    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(original_name).suffix or ".bin"
+    name = f"{prefix}_{uuid.uuid4().hex}{ext}"
+    final_path = settings.upload_dir / name
+    temp_path = settings.upload_dir / f"{name}.tmp"
+    temp_path.write_bytes(data)
+    return temp_path, final_path
+
+
+def finalize_upload_temp(temp_path: Path, final_path: Path) -> Path:
+    """Atomically moves temp file to final destination."""
+    os.replace(temp_path, final_path)
+    return final_path
+
+
+def discard_upload_temp(temp_path: Path) -> None:
+    """Best-effort temp cleanup."""
+    try:
+        temp_path.unlink(missing_ok=True)
+    except OSError:
+        pass

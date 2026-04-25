@@ -36,12 +36,22 @@ def attach_review_file(
     original_name: str,
 ) -> None:
     rev = get_or_create_review(db, attempt_id, teacher_id)
-    path = file_storage.store_upload(file_bytes, "review", original_name)
+    temp_path, final_path = file_storage.store_upload_temp(file_bytes, "review", original_name)
     db.add(
         TeacherReviewFile(
             review_id=rev.id,
-            storage_path=str(path),
+            storage_path=str(final_path),
             original_name=original_name,
         ),
     )
-    db.commit()
+    try:
+        file_storage.finalize_upload_temp(temp_path, final_path)
+        db.commit()
+    except Exception:
+        db.rollback()
+        file_storage.discard_upload_temp(temp_path)
+        try:
+            final_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise

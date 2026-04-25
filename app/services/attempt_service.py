@@ -95,6 +95,8 @@ def process_student_submission(
     except CheckerTimeoutError as e:
         raise ValueError(str(e)) from e
 
+    temp_path, final_path = file_storage.store_upload_temp(file_bytes, "attempt", original_filename)
+
     att = create_attempt(
         db,
         student_id=student.id,
@@ -130,16 +132,25 @@ def process_student_submission(
         )
     db.commit()
 
-    path = file_storage.store_upload(file_bytes, "attempt", original_filename)
     db.add(
         StudentAttemptFile(
             attempt_id=att.id,
             kind=AttemptFileKind.student_upload,
-            storage_path=str(path),
+            storage_path=str(final_path),
             original_name=original_filename,
         ),
     )
-    db.commit()
+    try:
+        file_storage.finalize_upload_temp(temp_path, final_path)
+        db.commit()
+    except Exception:
+        db.rollback()
+        file_storage.discard_upload_temp(temp_path)
+        try:
+            final_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     db.refresh(att)
     db.refresh(cr)
     log.info("Attempt %s checked run %s score %s/%s", att.id, cr.id, report.total_score, report.max_score)

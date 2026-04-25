@@ -22,6 +22,7 @@ def _create_version(
     version_number: int,
     file_bytes: bytes,
     original_filename: str,
+    storage_path: str,
 ) -> ReferenceWorkVersion:
     bio = BytesIO(file_bytes)
     wb = load_workbook(bio, data_only=True)
@@ -38,7 +39,7 @@ def _create_version(
         reference_work_id=reference_work_id,
         version_number=version_number,
         original_filename=original_filename,
-        storage_path="",  # заполняется после успешной загрузки файла
+        storage_path=storage_path,
         compiled_snapshot_json=snapshot_json(payloads),
         template_metadata_json=None,
     )
@@ -52,8 +53,6 @@ def _create_version(
                 expected_payload=payload,
             ),
         )
-    path = file_storage.store_upload(file_bytes, "ref", original_filename)
-    ver.storage_path = str(path)
     return ver
 
 
@@ -67,6 +66,7 @@ def upload_new_reference(
     original_filename: str,
     publish: bool,
 ) -> ReferenceWorkVersion:
+    temp_path, final_path = file_storage.store_upload_temp(file_bytes, "ref", original_filename)
     rw = ReferenceWork(
         teacher_id=teacher_id,
         variant_id=variant_id,
@@ -81,8 +81,19 @@ def upload_new_reference(
         version_number=1,
         file_bytes=file_bytes,
         original_filename=original_filename,
+        storage_path=str(final_path),
     )
-    db.commit()
+    try:
+        file_storage.finalize_upload_temp(temp_path, final_path)
+        db.commit()
+    except Exception:
+        db.rollback()
+        file_storage.discard_upload_temp(temp_path)
+        try:
+            final_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     db.refresh(ver)
     log.info("Reference uploaded: work=%s version=%s", rw.id, ver.id)
     return ver
@@ -95,6 +106,7 @@ def increment_version_upload(
     file_bytes: bytes,
     original_filename: str,
 ) -> ReferenceWorkVersion:
+    temp_path, final_path = file_storage.store_upload_temp(file_bytes, "ref", original_filename)
     next_v = max((v.version_number for v in reference_work.versions), default=0) + 1
     ver = _create_version(
         db,
@@ -102,7 +114,18 @@ def increment_version_upload(
         version_number=next_v,
         file_bytes=file_bytes,
         original_filename=original_filename,
+        storage_path=str(final_path),
     )
-    db.commit()
+    try:
+        file_storage.finalize_upload_temp(temp_path, final_path)
+        db.commit()
+    except Exception:
+        db.rollback()
+        file_storage.discard_upload_temp(temp_path)
+        try:
+            final_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     db.refresh(ver)
     return ver
