@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -16,8 +16,7 @@ from app.db.session import get_db
 from app.models.orm import User
 from app.repositories import attempts as att_repo
 from app.repositories import reference as ref_repo
-from app.repositories import variants as var_repo
-from app.repositories.variants import get_or_create_default_variant
+from app.repositories.variants import get_or_create_variant_for_scoring_mode
 from app.services import reference_service
 from app.services.file_storage import read_upload_with_size_limit
 from app.services.work_analytics import analytics_for_reference_work
@@ -37,7 +36,6 @@ def _render_upload_error(
 ) -> Response:
     works = ref_repo.list_reference_works_for_teacher(db, user.id)
     attempts = att_repo.list_attempts_for_teacher(db, user.id)
-    variants = var_repo.list_variants(db, user.id)
     return templates.TemplateResponse(
         request,
         "teacher_dashboard.html",
@@ -45,7 +43,6 @@ def _render_upload_error(
             "user": user,
             "works": works,
             "attempts": attempts,
-            "variants": variants,
             "error": message,
         },
         status_code=status,
@@ -60,23 +57,13 @@ async def teacher_upload_reference(
     title: str = Form(...),
     upload: UploadFile = File(...),
     publish: Optional[str] = Form(None),
-    variant_id: Optional[str] = Form(None),
+    scoring_mode: Literal["training", "testing"] = Form("training"),
 ) -> Response:
     try:
         data = await read_upload_with_size_limit(upload, label="эталон")
     except ValueError as e:
         return _render_upload_error(request, db, user, str(e))
-    v = None
-    if variant_id and str(variant_id).strip():
-        try:
-            vid = int(variant_id)
-        except ValueError:
-            return _render_upload_error(request, db, user, "Некорректный вариант")
-        v = var_repo.get_variant_for_teacher(db, vid, user.id)
-        if v is None:
-            return _render_upload_error(request, db, user, "Вариант не найден")
-    if v is None:
-        v = get_or_create_default_variant(db, user.id)
+    v = get_or_create_variant_for_scoring_mode(db, user.id, scoring_mode)
     try:
         reference_service.upload_new_reference(
             db,

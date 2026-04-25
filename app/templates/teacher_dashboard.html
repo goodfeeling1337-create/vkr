@@ -3,9 +3,9 @@
 {% block content %}
 <div class="page-head">
   <h1>Панель преподавателя</h1>
-  <p class="lead">Варианты заданий, эталоны и попытки студентов — в одном месте.</p>
+  <p class="lead">Эталоны и попытки студентов — в одном месте.</p>
   <p class="inline">
-    <a class="btn btn-secondary btn-sm" href="/teacher/variants">Варианты заданий</a>
+    <a class="btn btn-secondary btn-sm" href="/teacher/variants">Доп. настройки вариантов</a>
   </p>
 </div>
 
@@ -15,12 +15,11 @@
   <h2>Загрузить эталон (.xlsx)</h2>
   <form method="post" action="/teacher/reference/upload" enctype="multipart/form-data" class="form-grid">
     <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
-    <label>Название работы <input name="title" required placeholder="Лабораторная 1"/></label>
-    <label>Вариант
-      <select name="variant_id">
-        {% for v in variants %}
-          <option value="{{ v.id }}">{{ v.name }} ({{ 'тренировка' if v.scoring_mode == 'training' else 'тестирование' }})</option>
-        {% endfor %}
+    <label>Название работы <input name="title" required placeholder="Например: Кварплата"/></label>
+    <label>Режим для студентов
+      <select name="scoring_mode">
+        <option value="training" selected>Тренировка</option>
+        <option value="testing">Тестирование</option>
       </select>
     </label>
     <label>Файл <input name="upload" type="file" accept=".xlsx" required/></label>
@@ -36,7 +35,7 @@
     <thead>
       <tr>
         <th>Работа</th>
-        <th>Вариант</th>
+        <th>Режим</th>
         <th>Версий</th>
         <th>Статус</th>
         <th></th>
@@ -51,7 +50,6 @@
             <span class="badge {% if w.variant.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
               {{ 'Тренировка' if w.variant.scoring_mode == 'training' else 'Тестирование' }}
             </span>
-            <span class="meta">{{ w.variant.name }}</span>
           {% else %}—{% endif %}
         </td>
         <td>{{ w.versions|length }}</td>
