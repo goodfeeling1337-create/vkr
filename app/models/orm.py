@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 from typing import Any, Optional
 
@@ -16,6 +17,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+class AttemptFileKind(str, enum.Enum):
+    student_upload = "student_upload"
+    teacher_review = "teacher_review"
 
 
 class Role(Base):
@@ -147,7 +153,6 @@ class StudentAttempt(Base):
     )
     reference_version: Mapped[ReferenceWorkVersion] = relationship(back_populates="attempts")
     files: Mapped[list[StudentAttemptFile]] = relationship(back_populates="attempt")
-    parsed_snapshots: Mapped[list[ParsedAttemptSnapshot]] = relationship(back_populates="attempt")
     check_runs: Mapped[list[CheckRun]] = relationship(back_populates="attempt")
     teacher_review: Mapped[Optional["TeacherReview"]] = relationship(
         back_populates="attempt",
@@ -160,22 +165,12 @@ class StudentAttemptFile(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     attempt_id: Mapped[int] = mapped_column(ForeignKey("student_attempts.id"), nullable=False)
-    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # student_upload | teacher_review
+    kind: Mapped[AttemptFileKind] = mapped_column(String(32), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     original_name: Mapped[str] = mapped_column(String(512), nullable=False)
 
     attempt: Mapped[StudentAttempt] = relationship(back_populates="files")
 
-
-class ParsedAttemptSnapshot(Base):
-    __tablename__ = "parsed_attempt_snapshots"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    attempt_id: Mapped[int] = mapped_column(ForeignKey("student_attempts.id"), nullable=False)
-    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    attempt: Mapped[StudentAttempt] = relationship(back_populates="parsed_snapshots")
 
 
 class CheckRun(Base):

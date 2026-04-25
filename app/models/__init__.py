@@ -1,8 +1,8 @@
 from app.models.orm import (
+    AttemptFileKind,
     AuditLog,
     CheckResultItem,
     CheckRun,
-    ParsedAttemptSnapshot,
     ReferenceTaskAnswer,
     ReferenceWork,
     ReferenceWorkVersion,
@@ -18,6 +18,7 @@ from app.models.orm import (
 )
 
 __all__ = [
+    "AttemptFileKind",
     "Role",
     "User",
     "Variant",
@@ -26,7 +27,6 @@ __all__ = [
     "ReferenceTaskAnswer",
     "StudentAttempt",
     "StudentAttemptFile",
-    "ParsedAttemptSnapshot",
     "CheckRun",
     "CheckResultItem",
     "TeacherReview",

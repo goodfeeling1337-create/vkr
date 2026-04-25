@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from io import BytesIO
 from typing import Optional
@@ -10,11 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.checker.common.template_metadata_io import read_metadata_from_workbook
 from app.checker.engine import report_to_json, run_check
-from app.checker.parse_only import parse_all_tasks
 from app.models.orm import (
+    AttemptFileKind,
     CheckResultItem,
     CheckRun,
-    ParsedAttemptSnapshot,
     StudentAttemptFile,
     User,
 )
@@ -100,16 +98,9 @@ def process_student_submission(
     db.add(
         StudentAttemptFile(
             attempt_id=att.id,
-            kind="student_upload",
+            kind=AttemptFileKind.student_upload,
             storage_path=str(path),
             original_name=original_filename,
-        ),
-    )
-    snap = parse_all_tasks(wb)
-    db.add(
-        ParsedAttemptSnapshot(
-            attempt_id=att.id,
-            snapshot_json=json.dumps(snap, ensure_ascii=False),
         ),
     )
     sm = rw.variant.scoring_mode if rw and rw.variant else "training"
