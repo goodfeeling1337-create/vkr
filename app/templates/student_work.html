@@ -59,6 +59,7 @@
   <h2>Отправить ответ</h2>
   {% if can_submit and reference_version_id %}
   <form method="post" action="/student/work/{{ work.id }}/submit" enctype="multipart/form-data" class="form-grid">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
     <label>Файл .xlsx <input name="upload" type="file" accept=".xlsx" required/></label>
     <button type="submit" class="btn btn-primary">Загрузить и проверить</button>
   </form>

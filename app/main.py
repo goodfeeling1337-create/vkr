@@ -7,18 +7,40 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import attempt_views, auth, downloads, reference, review, student, teacher, variants
 from app.api.views import templates
 from app.core.config import get_settings
+from app.core.csrf_middleware import CSRFMiddleware
+from app.core.rate_limit import limiter
 from app.core.logging_config import setup_logging
 from app.db.seed import seed_if_empty
 from app.db.session import SessionLocal
+
+
+class MaxBodySizeMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: object) -> Response:
+        content_length = request.headers.get("content-length")
+        if content_length:
+            settings = get_settings()
+            if int(content_length) > settings.max_upload_size_bytes:
+                return JSONResponse(
+                    {"detail": "Файл слишком большой"},
+                    status_code=413,
+                )
+        return await call_next(request)
 
 setup_logging()
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="DB Normalization Checker", docs_url=None, redoc_url=None)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(MaxBodySizeMiddleware)
 
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():

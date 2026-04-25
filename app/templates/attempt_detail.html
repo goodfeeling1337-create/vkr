@@ -6,11 +6,13 @@
 {% if role == "teacher" %}
 <p><a href="/teacher">← К списку</a></p>
 <form method="post" action="/teacher/attempt/{{ attempt.id }}/comment" class="card">
+  <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
   <h2>Комментарий</h2>
   <textarea name="body" rows="4" style="width:100%"></textarea>
   <button type="submit">Сохранить</button>
 </form>
 <form method="post" action="/teacher/attempt/{{ attempt.id }}/review_file" enctype="multipart/form-data" class="card">
+  <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
   <h2>Проверенный файл</h2>
   <input type="file" name="upload" accept=".xlsx"/>
   <button type="submit">Загрузить</button>

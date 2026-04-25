@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     default_scoring_mode: Literal["training", "testing"] = "training"
     allow_optional_pure_junction_relations: bool = True
+    # Максимальный размер загружаемого файла в байтах (по умолчанию 10 МБ)
+    max_upload_size_bytes: int = 10 * 1024 * 1024
+    # Таймаут выполнения одной проверки в секундах (0 = без ограничения)
+    checker_timeout_seconds: int = 30
 
     @property
     def sync_database_url(self) -> str:

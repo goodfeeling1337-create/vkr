@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.orm import User
 from app.repositories import attempts as att_repo
 from app.services import review_service
+from app.services.file_storage import validate_upload_size
 
 router = APIRouter()
 
@@ -43,6 +44,10 @@ async def teacher_review_file(
     if att is None or att.reference_version.reference_work.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="Нет доступа")
     data = await upload.read()
+    try:
+        validate_upload_size(data, label="файл проверки")
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e)) from e
     try:
         review_service.attach_review_file(db, attempt_id, user.id, data, upload.filename or "review.xlsx")
     except PermissionError:

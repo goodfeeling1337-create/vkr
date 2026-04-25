@@ -14,6 +14,7 @@
 <section class="card card-form">
   <h2>Загрузить эталон (.xlsx)</h2>
   <form method="post" action="/teacher/reference/upload" enctype="multipart/form-data" class="form-grid">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
     <label>Название работы <input name="title" required placeholder="Лабораторная 1"/></label>
     <label>Вариант
       <select name="variant_id">

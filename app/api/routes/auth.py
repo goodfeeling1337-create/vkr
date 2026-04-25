@@ -10,6 +10,7 @@ from app.api.deps import get_current_user_optional
 from app.api.session import sign_user_id
 from app.api.views import templates
 from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.core.security import verify_password
 from app.db.session import get_db
 from app.models.orm import User
@@ -38,6 +39,7 @@ async def login_form(
 
 
 @router.post("/login")
+@limiter.limit("10/minute")
 async def login_post(
     request: Request,
     username: str = Form(...),

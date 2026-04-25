@@ -6,6 +6,7 @@
   <form method="post"
         action="/teacher/reference/{{ work.id }}/publish"
         style="display:inline">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
     {% if work.is_published %}
       <button type="submit" class="btn btn-secondary btn-sm">Снять с публикации</button>
     {% else %}
@@ -19,6 +20,7 @@
   <form method="post"
         action="/teacher/reference/{{ work.id }}/settings"
         class="form-grid">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
     <label>Лимит попыток на студента
       <input type="number" name="max_attempts" min="1"
              placeholder="Без ограничений"

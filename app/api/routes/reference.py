@@ -19,6 +19,7 @@ from app.repositories import reference as ref_repo
 from app.repositories import variants as var_repo
 from app.repositories.variants import get_or_create_default_variant
 from app.services import reference_service
+from app.services.file_storage import validate_upload_size
 from app.services.work_analytics import analytics_for_reference_work
 
 log = logging.getLogger(__name__)
@@ -62,6 +63,10 @@ async def teacher_upload_reference(
     variant_id: Optional[str] = Form(None),
 ) -> Response:
     data = await upload.read()
+    try:
+        validate_upload_size(data, label="эталон")
+    except ValueError as e:
+        return _render_upload_error(request, db, user, str(e))
     v = None
     if variant_id and str(variant_id).strip():
         try:

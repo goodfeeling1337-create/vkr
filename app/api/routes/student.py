@@ -16,6 +16,7 @@ from app.models.orm import ReferenceWork, User
 from app.repositories import attempts as att_repo
 from app.repositories import reference as ref_repo
 from app.services import attempt_service
+from app.services.file_storage import validate_upload_size
 from app.services.reference_access import SubmissionNotAllowed
 from app.services.submission_policy import validate_submission_allowed
 
@@ -139,6 +140,7 @@ async def student_submit_for_work(
     settings = get_settings()
     ref_vid = ver.id if ver else None
     try:
+        validate_upload_size(data, label="работа студента")
         aid, _ = attempt_service.process_student_submission(
             db,
             student=user,
@@ -184,6 +186,7 @@ async def student_submit(
             rv = None
     settings = get_settings()
     try:
+        validate_upload_size(data, label="работа студента")
         aid, _ = attempt_service.process_student_submission(
             db,
             student=user,

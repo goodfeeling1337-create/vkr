@@ -9,6 +9,7 @@
 <section class="card card-form">
   <h2>Новый вариант</h2>
   <form method="post" action="/teacher/variants/new" class="form-grid">
+    <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
     <label>Название <input name="name" required placeholder="Например: ЛР1 — Кварплата"/></label>
     <label>Режим по умолчанию
       <select name="scoring_mode">
@@ -35,6 +36,7 @@
       <p class="meta">slug: <code>{{ row.variant.slug }}</code></p>
       <p class="stat-line">Работ (эталонов): <strong>{{ row.works_count }}</strong></p>
       <form method="post" action="/teacher/variants/{{ row.variant.id }}/edit" class="stack">
+        <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
         <input type="text" name="name" value="{{ row.variant.name }}" placeholder="Название"/>
         <select name="scoring_mode">
           <option value="training" {% if row.variant.scoring_mode == 'training' %}selected{% endif %}>Тренировка</option>

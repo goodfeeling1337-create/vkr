@@ -7,6 +7,8 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from app.checker.reference_compiler import compile_reference_payloads, snapshot_json
+from app.checker.timeout import CheckerTimeoutError, checker_timeout
+from app.core.config import get_settings
 from app.models.orm import ReferenceTaskAnswer, ReferenceWork, ReferenceWorkVersion
 from app.services import file_storage
 
@@ -23,16 +25,20 @@ def _create_version(
 ) -> ReferenceWorkVersion:
     bio = BytesIO(file_bytes)
     wb = load_workbook(bio, data_only=True)
-    payloads, errors = compile_reference_payloads(wb)
+    settings = get_settings()
+    try:
+        with checker_timeout(settings.checker_timeout_seconds):
+            payloads, errors = compile_reference_payloads(wb)
+    except CheckerTimeoutError as e:
+        raise ValueError(str(e)) from e
     if errors:
         log.warning("compile errors: %s", errors)
         raise ValueError("; ".join(errors))
-    path = file_storage.store_upload(file_bytes, "ref", original_filename)
     ver = ReferenceWorkVersion(
         reference_work_id=reference_work_id,
         version_number=version_number,
         original_filename=original_filename,
-        storage_path=str(path),
+        storage_path="",  # заполняется после успешной загрузки файла
         compiled_snapshot_json=snapshot_json(payloads),
         template_metadata_json=None,
     )
@@ -46,6 +52,8 @@ def _create_version(
                 expected_payload=payload,
             ),
         )
+    path = file_storage.store_upload(file_bytes, "ref", original_filename)
+    ver.storage_path = str(path)
     return ver
 
 

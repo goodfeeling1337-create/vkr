@@ -21,6 +21,17 @@ def resolve_path_under_upload_dir(path: str | Path, *, root: Path | None = None)
     return resolved
 
 
+def validate_upload_size(data: bytes, *, label: str = "файл") -> None:
+    """Бросает ValueError если файл превышает лимит."""
+    limit = get_settings().max_upload_size_bytes
+    if len(data) > limit:
+        mb = limit // (1024 * 1024)
+        raise ValueError(
+            f"Размер файла превышает допустимый лимит ({mb} МБ). "
+            "Загрузите файл меньшего размера."
+        )
+
+
 def store_upload(data: bytes, prefix: str, original_name: str) -> Path:
     settings = get_settings()
     settings.upload_dir.mkdir(parents=True, exist_ok=True)

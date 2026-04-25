@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.checker.common.template_metadata_io import read_metadata_from_workbook
 from app.checker.engine import report_to_json, run_check
+from app.checker.timeout import CheckerTimeoutError, checker_timeout
+from app.core.config import get_settings as _get_settings
 from app.models.orm import (
     AttemptFileKind,
     CheckResultItem,
@@ -81,12 +83,17 @@ def process_student_submission(
         metadata_tag,
     )
 
-    report = run_check(
-        wb,
-        ref_payloads,
-        allow_optional_pure_junction=allow_junction,
-        metadata_resolution=metadata_tag,
-    )
+    _settings = _get_settings()
+    try:
+        with checker_timeout(_settings.checker_timeout_seconds):
+            report = run_check(
+                wb,
+                ref_payloads,
+                allow_optional_pure_junction=allow_junction,
+                metadata_resolution=metadata_tag,
+            )
+    except CheckerTimeoutError as e:
+        raise ValueError(str(e)) from e
 
     att = create_attempt(
         db,
