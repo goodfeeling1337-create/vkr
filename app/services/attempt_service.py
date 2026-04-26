@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from zipfile import BadZipFile
 from io import BytesIO
 from typing import Optional
 
 from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 from sqlalchemy.orm import Session
 
 from app.checker.common.template_metadata_io import read_metadata_from_workbook
@@ -41,7 +43,12 @@ def process_student_submission(
     Серверная проверка эталона: нельзя подставить чужой reference_version_id или id из подделанного metadata.
     """
     bio = BytesIO(file_bytes)
-    wb = load_workbook(bio, data_only=True)
+    try:
+        wb = load_workbook(bio, data_only=True)
+    except (InvalidFileException, BadZipFile, OSError, ValueError) as e:
+        raise ValueError(
+            "Файл не похож на корректный .xlsx. Проверьте формат и попробуйте снова.",
+        ) from e
 
     mr = read_metadata_from_workbook(wb)
     meta = mr.metadata

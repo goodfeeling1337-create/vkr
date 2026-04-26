@@ -23,6 +23,13 @@ from app.services.submission_policy import validate_submission_allowed
 router = APIRouter()
 
 
+def _ensure_xlsx_filename(filename: str | None) -> str:
+    name = (filename or "").strip()
+    if not name or not name.lower().endswith(".xlsx"):
+        raise ValueError("Нужно загрузить файл формата .xlsx")
+    return name
+
+
 def _handle_submission_error(
     request: Request,
     exc: Exception,
@@ -139,12 +146,13 @@ async def student_submit_for_work(
     settings = get_settings()
     ref_vid = ver.id if ver else None
     try:
+        valid_name = _ensure_xlsx_filename(upload.filename)
         data = await read_upload_with_size_limit(upload, label="работа студента")
         aid, _ = attempt_service.process_student_submission(
             db,
             student=user,
             file_bytes=data,
-            original_filename=upload.filename or "work.xlsx",
+            original_filename=valid_name,
             reference_version_id=ref_vid,
             fallback_allow_optional_pure=settings.allow_optional_pure_junction_relations,
         )
@@ -184,12 +192,13 @@ async def student_submit(
             rv = None
     settings = get_settings()
     try:
+        valid_name = _ensure_xlsx_filename(upload.filename)
         data = await read_upload_with_size_limit(upload, label="работа студента")
         aid, _ = attempt_service.process_student_submission(
             db,
             student=user,
             file_bytes=data,
-            original_filename=upload.filename or "work.xlsx",
+            original_filename=valid_name,
             reference_version_id=rv,
             fallback_allow_optional_pure=settings.allow_optional_pure_junction_relations,
         )
