@@ -7,20 +7,41 @@ from app.checker.normalizers import normalize_attribute_name
 from app.domain.check_results import TaskCheckResult, TaskStatus
 
 
+def _canon_headers(headers: list[Any]) -> list[str]:
+    out = [normalize_attribute_name(x) for x in headers]
+    while out and not out[-1]:
+        out.pop()
+    return out
+
+
+def _canon_rows(rows: list[Any]) -> list[tuple[str, ...]]:
+    canon: list[tuple[str, ...]] = []
+    for row in rows or []:
+        if isinstance(row, (list, tuple)):
+            vals_list = ["" if v is None else str(v) for v in row]
+            while vals_list and vals_list[-1] == "":
+                vals_list.pop()
+            vals = tuple(vals_list)
+            canon.append(vals)
+            continue
+        canon.append((str(row),))
+    return sorted(canon)
+
+
 def check_task1(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     errs: list[str] = []
     error_kind: str | None = None
     if normalize_attribute_name(ref.get("relation", "")) != normalize_attribute_name(stu.get("relation", "")):
         errs.append("Название исходного отношения не совпадает с эталоном")
         error_kind = "relation_name"
-    rh = [normalize_attribute_name(x) for x in ref.get("headers", [])]
-    sh = [normalize_attribute_name(x) for x in stu.get("headers", [])]
+    rh = _canon_headers(ref.get("headers", []))
+    sh = _canon_headers(stu.get("headers", []))
     if rh != sh:
         errs.append("Заголовки атрибутов не совпадают с эталоном")
         if error_kind is None:
             error_kind = "headers"
-    rr = sorted(ref.get("rows", []))
-    sr = sorted(stu.get("rows", []))
+    rr = _canon_rows(ref.get("rows", []))
+    sr = _canon_rows(stu.get("rows", []))
     if rr != sr:
         errs.append("Набор строк не совпадает с эталоном (мультимножество строк)")
         if error_kind is None:
@@ -88,9 +109,7 @@ def check_task3(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
         errs.append("Название отношения в задании 3 не совпадает с эталоном")
         error_kind = "relation_name"
     # Если в эталоне есть строка с названием, а у студента она опущена — не штрафуем при совпадении таблицы
-    if [normalize_attribute_name(x) for x in ref.get("headers", [])] != [
-        normalize_attribute_name(x) for x in stu.get("headers", [])
-    ]:
+    if _canon_headers(ref.get("headers", [])) != _canon_headers(stu.get("headers", [])):
         errs.append("Заголовки столбцов 1НФ не совпадают с эталоном")
         if error_kind is None:
             error_kind = "headers"
@@ -100,13 +119,13 @@ def check_task3(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
         errs.append("Ключевые атрибуты 1НФ не совпадают с эталоном")
         if error_kind is None:
             error_kind = "key_attributes"
-    rr = ref.get("rows", [])
-    sr = stu.get("rows", [])
-    if sorted(rr) != sorted(sr):
+    rr = _canon_rows(ref.get("rows", []))
+    sr = _canon_rows(stu.get("rows", []))
+    if rr != sr:
         errs.append("Строки данных 1НФ не совпадают с эталоном (мультимножество строк)")
         if error_kind is None:
             error_kind = "rows"
-    hdrs = [normalize_attribute_name(x) for x in stu.get("headers", [])]
+    hdrs = _canon_headers(stu.get("headers", []))
     key_idx = [i for i, h in enumerate(hdrs) if h in set(sk)]
     if hdrs and key_idx and sr:
         if not _key_unique(sr, key_idx):
