@@ -72,7 +72,13 @@ def parse_task3(section: ParsedTaskSection) -> ParseOutcome[dict[str, Any]]:
                 "Не найдена строка заголовков 1НФ (или нет ключевых пометок *)",
             )
 
-    headers = [normalize_attribute_name(h) for h in headers_raw if normalize_attribute_name(h)]
+    # Сохраняем длину и позиции столбцов как в headers_raw — иначе при пустой ячейке
+    # в начале/конце строки заголовков «сжатый» список имён не совпадает с шириной строк
+    # данных, и индексы ключа в check_task3 указывают не на те столбцы (ложные дубликаты).
+    headers = [
+        normalize_attribute_name(str(h)) if h is not None and str(h).strip() else ""
+        for h in headers_raw
+    ]
     data_rows: list[tuple[str, ...]] = []
     for i in range(start_data, len(rows)):
         r = rows[i]

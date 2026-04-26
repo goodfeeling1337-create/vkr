@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.checker.normalizers import normalize_attribute_name
+from app.checker.normalizers import normalize_attribute_name, normalize_text
 from app.checker.parsers.outcome import ParseOutcome
 from app.checker.parsers.task_common import non_empty_rows
 from app.domain.workbook import ParsedTaskSection
@@ -25,11 +25,18 @@ def parse_task2(section: ParsedTaskSection) -> ParseOutcome[dict[str, Any]]:
                 groups.append(current)
             current = set()
             continue
-        attrs = _split_attrs(line)
         if current is None:
             current = set()
-        for a in attrs:
-            current.add(normalize_attribute_name(a))
+        # Каждая ячейка — отдельный атрибут (плюс запятые/; внутри ячейки). Склейка через
+        # пробел давала одну «суперстроку» и ломала сравнение с эталоном в нескольких ячейках.
+        for cell in cells:
+            na_cell = normalize_attribute_name(cell)
+            # Подпись столбца «Ответ:» в отдельной ячейке — не атрибут отношения.
+            if not na_cell or normalize_text(cell).lower().rstrip(":.;") in ("ответ", "ответ:"):
+                continue
+            for a in _split_attrs(cell):
+                if a:
+                    current.add(normalize_attribute_name(a))
     if current is not None and current:
         groups.append(current)
     if not groups:

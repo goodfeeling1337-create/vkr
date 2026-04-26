@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.checker.normalizers import normalize_attribute_name, normalize_cell_value, normalize_text
+from app.checker.normalizers import (
+    normalize_attribute_name,
+    normalize_cell_value,
+    normalize_text,
+)
 from app.checker.parsers.outcome import ParseOutcome
 from app.checker.parsers.task_common import non_empty_rows
 from app.domain.workbook import ParsedTaskSection
@@ -33,6 +37,14 @@ def parse_task1(section: ParsedTaskSection) -> ParseOutcome[dict[str, Any]]:
     start_data = 0
     found = False
     for i in range(hi, len(rows)):
+        raw_nonempty = [c for c in rows[i] if c and str(c).strip()]
+        if len(raw_nonempty) < 2:
+            continue
+        first_txt = normalize_text(str(raw_nonempty[0])).lower()
+        second_txt = normalize_text(str(raw_nonempty[1])) if len(raw_nonempty) > 1 else ""
+        # Строка-подсказка «Ответ:» + длинный текст — не заголовок таблицы.
+        if first_txt.startswith("ответ:") and len(second_txt) > 30:
+            continue
         cells = [normalize_attribute_name(c) for c in rows[i] if c and normalize_attribute_name(c)]
         if len(cells) >= 2:
             headers = cells
