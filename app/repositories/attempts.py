@@ -32,6 +32,7 @@ def get_attempt_detail(db: Session, attempt_id: int) -> StudentAttempt | None:
         select(StudentAttempt)
         .options(
             joinedload(StudentAttempt.student),
+            selectinload(StudentAttempt.files),
             joinedload(StudentAttempt.reference_version)
             .joinedload(ReferenceWorkVersion.reference_work),
             joinedload(StudentAttempt.teacher_review).options(

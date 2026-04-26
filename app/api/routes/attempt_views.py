@@ -20,6 +20,13 @@ from app.training_hints import CODE_TRAINING_HINTS, TASK_TRAINING_HINTS
 router = APIRouter()
 
 
+def _latest_student_upload_file(att) -> object | None:
+    files = [f for f in (att.files or []) if str(f.kind) == "student_upload"]
+    if not files:
+        return None
+    return max(files, key=lambda x: x.id)
+
+
 @router.get("/teacher/attempt/{attempt_id}", response_class=HTMLResponse)
 async def teacher_attempt(
     request: Request,
@@ -38,6 +45,7 @@ async def teacher_attempt(
     ).scalar_one_or_none()
     report = json.loads(cr.report_json) if cr else {}
     scoring_mode = rw.scoring_mode
+    student_upload_file = _latest_student_upload_file(att)
     return templates.TemplateResponse(
         request,
         "attempt_detail.html",
@@ -50,6 +58,7 @@ async def teacher_attempt(
             "training_task_hints": TASK_TRAINING_HINTS,
             "code_training_hints": CODE_TRAINING_HINTS,
             "feedback_restricted": False,
+            "student_upload_file": student_upload_file,
         },
     )
 
@@ -70,6 +79,7 @@ async def student_attempt_view(
     report = json.loads(cr.report_json) if cr else {}
     rw = att.reference_version.reference_work
     scoring_mode = rw.scoring_mode
+    student_upload_file = _latest_student_upload_file(att)
     if scoring_mode == "testing":
         report = student_testing_report_view(report)
     return templates.TemplateResponse(
@@ -85,5 +95,6 @@ async def student_attempt_view(
             "code_training_hints": CODE_TRAINING_HINTS,
             "feedback_restricted": scoring_mode == "testing",
             "work_id": att.reference_version.reference_work.id,
+            "student_upload_file": student_upload_file,
         },
     )

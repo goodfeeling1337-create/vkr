@@ -3,6 +3,9 @@
 {% block content %}
 <h1>Попытка #{{ attempt.id }}</h1>
 <p>Файл: {{ attempt.submitted_filename or "—" }}</p>
+{% if role == "teacher" and student_upload_file %}
+<p><a href="/download/attempt/{{ attempt.id }}/student_file">Скачать файл студента</a></p>
+{% endif %}
 {% if role == "teacher" %}
 <p><a href="/teacher">← К списку</a></p>
 <form method="post" action="/teacher/attempt/{{ attempt.id }}/comment" class="card">
@@ -94,7 +97,16 @@
             {% endif %}
           {% endif %}
         </td>
-        <td>{{ t.status if t else "—" }}</td>
+        <td>
+          {% if t %}
+            {% if t.status == "correct" %}Корректно
+            {% elif t.status == "wrong" %}Неправильно
+            {% elif t.status == "partial" %}Частично корректно
+            {% elif t.status == "parse_error" %}Ошибка разбора
+            {% elif t.status == "not_checked" %}Не проверяется автоматически
+            {% else %}{{ t.status }}{% endif %}
+          {% else %}—{% endif %}
+        </td>
         <td>{{ (t.score ~ ' / ' ~ t.max_score) if t else "—" }}</td>
         <td>
           {% if t and t.semantic_mark %}{{ t.semantic_mark }}{% else %}—{% endif %}
@@ -104,6 +116,24 @@
         </td>
         <td>
           {% if t and t.human_message %}{{ t.human_message }}{% endif %}
+          {% if t and t.semantic_analysis and t.semantic_analysis.compare_table and t.semantic_analysis.compare_table.rows %}
+            <table class="tbl" style="margin-top:0.6em">
+              <thead>
+                <tr>
+                  <th>Ожидаемые атрибуты</th>
+                  <th>Фактические атрибуты</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for row in t.semantic_analysis.compare_table.rows %}
+                <tr>
+                  <td>{{ row.expected }}</td>
+                  <td>{{ row.actual }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
           {% if t and t.errors %}
             <ul class="errs">{% for e in t.errors %}<li>{{ e }}</li>{% endfor %}</ul>
           {% endif %}

@@ -9,7 +9,15 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_login
 from app.db.session import get_db
-from app.models.orm import TeacherReview, TeacherReviewFile, User
+from app.models.orm import (
+    AttemptFileKind,
+    ReferenceWorkVersion,
+    StudentAttempt,
+    StudentAttemptFile,
+    TeacherReview,
+    TeacherReviewFile,
+    User,
+)
 from app.repositories import reference as ref_repo
 from app.services import template_service
 
@@ -94,3 +102,35 @@ async def download_review_file(
     if user.role.name == "teacher" and att.reference_version.reference_work.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="Нет доступа")
     return FileResponse(f.storage_path, filename=f.original_name)
+
+
+@router.get("/download/attempt/{attempt_id}/student_file")
+async def download_student_attempt_file(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_login),
+) -> FileResponse:
+    f = db.execute(
+        select(StudentAttemptFile)
+        .options(
+            joinedload(StudentAttemptFile.attempt)
+            .joinedload(StudentAttempt.reference_version)
+            .joinedload(ReferenceWorkVersion.reference_work),
+        )
+        .where(
+            StudentAttemptFile.attempt_id == attempt_id,
+            StudentAttemptFile.kind == AttemptFileKind.student_upload.value,
+        )
+        .order_by(StudentAttemptFile.id.desc()),
+    ).scalars().first()
+    if f is None:
+        raise HTTPException(status_code=404, detail="Файл попытки не найден")
+    att = f.attempt
+    if user.role.name == "student" and att.student_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    if user.role.name == "teacher" and att.reference_version.reference_work.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    path = Path(f.storage_path)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Файл не найден на сервере")
+    return FileResponse(path, filename=f.original_name)

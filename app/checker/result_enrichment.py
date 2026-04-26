@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import asdict
 from typing import Any
 
@@ -21,6 +22,81 @@ GROUP_TASK2 = frozenset({2})
 NF1_TASK3 = frozenset({3})
 
 
+def _as_list_str(values: list[Any]) -> list[str]:
+    out: list[str] = []
+    for v in values or []:
+        if isinstance(v, (list, tuple, set)):
+            out.append(", ".join(str(x) for x in v))
+        else:
+            out.append(str(v))
+    return out
+
+
+def _format_relation_item(item: dict[str, Any]) -> str:
+    name = str(item.get("name", "") or "")
+    attrs = ", ".join(str(x) for x in (item.get("attributes") or []))
+    keys = ", ".join(str(x) for x in (item.get("key_attributes") or []))
+    return f"{name}({attrs}) key({keys})"
+
+
+def _build_compare_rows(task_number: int, ref_payload: dict[str, Any], stu_payload: dict[str, Any]) -> list[dict[str, str]]:
+    if task_number == 1:
+        r_rows = [tuple(x) if isinstance(x, (list, tuple)) else (x,) for x in (ref_payload.get("rows") or [])]
+        s_rows = [tuple(x) if isinstance(x, (list, tuple)) else (x,) for x in (stu_payload.get("rows") or [])]
+        rc = Counter(r_rows)
+        sc = Counter(s_rows)
+        missing = list((rc - sc).elements())
+        extra = list((sc - rc).elements())
+        rows: list[dict[str, str]] = []
+        for i in range(max(len(missing), len(extra))):
+            rows.append(
+                {
+                    "expected": " | ".join(str(x) for x in missing[i]) if i < len(missing) else "",
+                    "actual": " | ".join(str(x) for x in extra[i]) if i < len(extra) else "",
+                }
+            )
+        return rows
+    if task_number == 2:
+        exp = sorted({str(a) for g in (ref_payload.get("groups") or []) for a in g})
+        got = sorted({str(a) for g in (stu_payload.get("groups") or []) for a in g})
+    elif task_number == 3:
+        exp = [str(x) for x in (ref_payload.get("headers") or []) if str(x).strip()]
+        got = [str(x) for x in (stu_payload.get("headers") or []) if str(x).strip()]
+    elif task_number in {4, 6, 7, 8, 9}:
+        exp = _as_list_str(ref_payload.get("fd_lines") or [])
+        got = _as_list_str(stu_payload.get("fd_lines") or [])
+    elif task_number == 5:
+        exp = _as_list_str(ref_payload.get("pk_attributes") or [])
+        got = _as_list_str(stu_payload.get("pk_attributes") or [])
+    elif task_number in {11, 13}:
+        exp = [_format_relation_item(x) for x in (ref_payload.get("relations") or [])]
+        got = [_format_relation_item(x) for x in (stu_payload.get("relations") or [])]
+    else:
+        return []
+    rows = []
+    for i in range(max(len(exp), len(got))):
+        rows.append({"expected": exp[i] if i < len(exp) else "", "actual": got[i] if i < len(got) else ""})
+    return rows
+
+
+def _set_task_human_message(tr: TaskCheckResult, task_number: int, compare_rows: list[dict[str, str]]) -> None:
+    if tr.status == TaskStatus.correct:
+        tr.human_message = "Ответ корректный."
+        return
+    if task_number == 1:
+        missing = [r["expected"] for r in compare_rows if r["expected"]]
+        tr.human_message = (
+            "Не добавлены элементы из эталона: " + "; ".join(missing[:8]) if missing else "Ответ отличается от эталона."
+        )
+        return
+    if task_number in {2, 3}:
+        tr.human_message = "Ожидаемые атрибуты и ответ студента приведены в таблице ниже."
+        return
+    if task_number in {4, 5, 6, 7, 8, 9, 11, 13}:
+        tr.human_message = "Ожидалось и фактический ответ приведены в таблице ниже."
+        return
+
+
 def enrich_task_result(
     task_number: int,
     tr: TaskCheckResult,
@@ -30,11 +106,16 @@ def enrich_task_result(
     allow_optional_pure_junction: bool,
 ) -> None:
     """Мутирует TaskCheckResult: semantic mark, typical mistakes, semantic_analysis."""
+    compare_rows = _build_compare_rows(task_number, ref_payload, stu_payload)
+
     if tr.status == TaskStatus.parse_error:
         tr.semantic_mark = None
         tr.semantic_mark_explanation = "Разбор ответа не выполнен — смысловая оценка недоступна."
         tr.typical_mistakes = []
         tr.semantic_analysis = {"status": "parse_error"}
+        if compare_rows:
+            tr.semantic_analysis["compare_table"] = {"rows": compare_rows}
+        _set_task_human_message(tr, task_number, compare_rows)
         analysis = analyze_task_errors(task_number, tr, semantic=None)
         tr.typical_mistakes = [asdict(m) for m in analysis.matches] if analysis.matches else []
         return
@@ -203,6 +284,11 @@ def enrich_task_result(
 
     analysis = analyze_task_errors(task_number, tr, semantic=tr.semantic_analysis)
     tr.typical_mistakes = [asdict(m) for m in analysis.matches]
+    if tr.semantic_analysis is None:
+        tr.semantic_analysis = {"status": tr.status.value}
+    if compare_rows:
+        tr.semantic_analysis["compare_table"] = {"rows": compare_rows}
+    _set_task_human_message(tr, task_number, compare_rows)
 
 
 def finalize_report_semantics(report: CheckReport) -> None:
