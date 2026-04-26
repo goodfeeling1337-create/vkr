@@ -137,7 +137,7 @@
           {% if t and t.errors %}
             <ul class="errs">{% for e in t.errors %}<li>{{ e }}</li>{% endfor %}</ul>
           {% endif %}
-          {% if t and t.typical_mistakes %}
+          {% if role != 'teacher' and t and t.typical_mistakes %}
             <p class="meta">Типовые ошибки (автоклассификация):</p>
             <ul class="errs">
             {% for m in t.typical_mistakes %}
