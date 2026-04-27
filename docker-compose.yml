@@ -1,4 +1,5 @@
 services:
+  # Dev profile: includes local PostgreSQL and insecure defaults for local use only.
   db:
     image: postgres:16-alpine
     environment:
@@ -20,6 +21,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      APP_ENVIRONMENT: development
       SECRET_KEY: dev-docker-secret-change-me
       DATABASE_URL: postgresql+psycopg://dn_user:dn_pass@db:5432/dn_db
       UPLOAD_DIR: /data/uploads

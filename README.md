@@ -20,6 +20,8 @@
 
 ## Запуск через Docker
 
+### Development (локально)
+
 ```bash
 docker compose up --build
 ```
@@ -35,6 +37,18 @@ docker compose up --build
 `postgresql+psycopg://dn_user:dn_pass@db:5432/dn_db`
 
 Переменные см. `.env.example`.
+
+### Production profile (без встроенной БД)
+
+Используйте отдельный compose-файл `docker-compose.prod.yml` и задавайте секреты через окружение:
+
+```bash
+export SECRET_KEY="replace-with-strong-secret"
+export DATABASE_URL="postgresql+psycopg://user:pass@host:5432/db"
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+В production включается `APP_ENVIRONMENT=production`, что активирует валидации безопасной конфигурации (`SECRET_KEY`, `SESSION_COOKIE_SECURE=true`).
 
 ## Локальный запуск (без Docker)
 

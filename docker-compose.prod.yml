@@ -1,0 +1,23 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENVIRONMENT: production
+      # Set a strong unique secret in deployment environment.
+      SECRET_KEY: ${SECRET_KEY}
+      SESSION_COOKIE_SECURE: "true"
+      DATABASE_URL: ${DATABASE_URL}
+      UPLOAD_DIR: /data/uploads
+      LOG_LEVEL: INFO
+    volumes:
+      - upload_data:/data/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/login\")'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  upload_data:
