@@ -27,12 +27,12 @@ def split_elementary_from_line(line: str) -> list[FunctionalDependency]:
 
 def _parse_attr_set(s: str) -> set[str]:
     s = s.strip().strip("{}[]()")
-    parts = re.split(r"[,;\s]+", s)
+    parts = re.split(r"[,;]\s*", s)
     return {normalize_attribute_name(p) for p in parts if normalize_attribute_name(p)}
 
 
 def _parse_attr_list(s: str) -> list[str]:
-    parts = re.split(r"[,;\s]+", s)
+    parts = re.split(r"[,;]\s*", s)
     return [normalize_attribute_name(p) for p in parts if normalize_attribute_name(p)]
 
 
