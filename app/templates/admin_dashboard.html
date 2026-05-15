@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Администратор{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Панель администратора</h1>
+  <p class="lead">Обзор пользователей и данных. Проверка студенческих работ и загрузка эталонов — в <a href="/teacher">интерфейсе преподавателя</a> (доступен администратору ко всем работам).</p>
+</div>
+
+<section class="card">
+  <h2>Пользователи</h2>
+  {% if users %}
+  <table class="tbl">
+    <thead><tr><th>Логин</th><th>Имя</th><th>Роль</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.display_name or "—" }}</td>
+        <td><span class="role-pill role-{{ u.role.name }}">{{ u.role.name }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Все эталонные работы</h2>
+  {% if works %}
+  <table class="tbl">
+    <thead><tr><th>Работа</th><th>Курс</th><th>Преподаватель</th><th>Режим</th><th></th></tr></thead>
+    <tbody>
+    {% for w in works %}
+      <tr>
+        <td><strong>{{ w.title }}</strong></td>
+        <td>{{ w.course_label or "—" }}</td>
+        <td>{{ w.teacher.username }}</td>
+        <td>{{ 'Тренировка' if w.scoring_mode == 'training' else 'Тестирование' }}</td>
+        <td class="tbl-actions"><a href="/teacher/reference/{{ w.id }}">Карточка</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="meta">Работ нет.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Последние попытки (все преподаватели)</h2>
+  {% if attempts %}
+  <table class="tbl">
+    <thead><tr><th>Дата</th><th>Студент</th><th>Работа</th><th>Преподаватель</th><th></th></tr></thead>
+    <tbody>
+    {% for a in attempts %}
+      {% set rw = a.reference_version.reference_work %}
+      <tr>
+        <td class="meta">{{ a.created_at.strftime('%Y-%m-%d %H:%M') if a.created_at else '—' }}</td>
+        <td><strong>{{ a.student.display_name or a.student.username }}</strong></td>
+        <td>{{ rw.title }}</td>
+        <td>{{ rw.teacher.username }}</td>
+        <td class="tbl-actions"><a href="/teacher/attempt/{{ a.id }}">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="meta">Попыток нет.</p>
+  {% endif %}
+</section>
+{% endblock %}

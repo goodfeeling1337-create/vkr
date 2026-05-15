@@ -13,7 +13,7 @@ def test_enrich_task11_sets_schema_gap_kind() -> None:
         max_score=1.0,
         errors=["схема"],
     )
-    ref_payload = {"relations": [{"name": "R1", "attrs": ("a",), "key": ("a",)}]}
+    ref_payload = {"relations": [{"name": "R1", "attributes": ["a"], "key_attributes": ["a"]}]}
     stu_payload = {"relations": []}
 
     def fake_compare(ref: dict, stu: dict, *, allow_optional_pure_junction: bool):
@@ -30,12 +30,12 @@ def test_enrich_task11_sets_schema_gap_kind() -> None:
 
     import app.checker.result_enrichment as re
 
-    orig = re.compare_relation_schemas
-    re.compare_relation_schemas = fake_compare  # type: ignore[assignment]
+    orig = re.compare_relation_schemas_task11_attrs_only
+    re.compare_relation_schemas_task11_attrs_only = fake_compare  # type: ignore[assignment]
     try:
         enrich_task_result(11, tr, ref_payload=ref_payload, stu_payload=stu_payload, allow_optional_pure_junction=True)
     finally:
-        re.compare_relation_schemas = orig  # type: ignore[assignment]
+        re.compare_relation_schemas_task11_attrs_only = orig  # type: ignore[assignment]
 
     assert tr.semantic_analysis is not None
     assert tr.semantic_analysis.get("schema_normal_form") == "2nf"

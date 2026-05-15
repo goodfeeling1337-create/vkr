@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_teacher
+from app.api.deps import require_teacher, teacher_or_admin_owns_work
 from app.api.views import templates
 from app.db.session import get_db
 from app.models.orm import User
@@ -33,8 +33,15 @@ def _render_upload_error(
     *,
     status: int = 400,
 ) -> Response:
-    works = ref_repo.list_reference_works_for_teacher(db, user.id)
-    attempts = att_repo.list_attempts_for_teacher(db, user.id)
+    is_admin = user.role.name == "admin"
+    if is_admin:
+        works = ref_repo.list_all_reference_works(db)
+        attempts = att_repo.list_attempts_all(db)
+        course_labels = ref_repo.distinct_course_labels_all(db)
+    else:
+        works = ref_repo.list_reference_works_for_teacher(db, user.id)
+        attempts = att_repo.list_attempts_for_teacher(db, user.id)
+        course_labels = ref_repo.distinct_course_labels_for_teacher(db, user.id)
     return templates.TemplateResponse(
         request,
         "teacher_dashboard.html",
@@ -42,6 +49,10 @@ def _render_upload_error(
             "user": user,
             "works": works,
             "attempts": attempts,
+            "course_labels": course_labels,
+            "filter_course": None,
+            "filter_work_id": None,
+            "is_admin": is_admin,
             "error": message,
         },
         status_code=status,
@@ -57,6 +68,7 @@ async def teacher_upload_reference(
     upload: UploadFile = File(...),
     publish: Optional[str] = Form(None),
     scoring_mode: Literal["training", "testing"] = Form("training"),
+    course_label: Optional[str] = Form(None),
 ) -> Response:
     try:
         data = await read_upload_with_size_limit(upload, label="эталон")
@@ -68,6 +80,7 @@ async def teacher_upload_reference(
             teacher_id=user.id,
             scoring_mode=scoring_mode,
             title=title,
+            course_label=course_label,
             file_bytes=data,
             original_filename=upload.filename or "reference.xlsx",
             publish=publish == "on",
@@ -86,7 +99,7 @@ async def teacher_reference_detail(
     user: User = Depends(require_teacher),
 ) -> HTMLResponse:
     w = ref_repo.get_reference_work(db, work_id)
-    if not w or w.teacher_id != user.id:
+    if not w or not teacher_or_admin_owns_work(user, w.teacher_id):
         raise HTTPException(status_code=403, detail="Нет доступа")
     analytics = analytics_for_reference_work(db, work_id)
     return templates.TemplateResponse(
@@ -109,7 +122,7 @@ async def teacher_reference_settings(
     deadline_at: Optional[str] = Form(None),
 ) -> RedirectResponse:
     w = ref_repo.get_reference_work(db, work_id)
-    if not w or w.teacher_id != user.id:
+    if not w or not teacher_or_admin_owns_work(user, w.teacher_id):
         raise HTTPException(status_code=403, detail="Нет доступа")
     if max_attempts is not None and str(max_attempts).strip() != "":
         try:
@@ -140,7 +153,7 @@ async def teacher_reference_toggle_publish(
     user: User = Depends(require_teacher),
 ) -> RedirectResponse:
     w = ref_repo.get_reference_work(db, work_id)
-    if not w or w.teacher_id != user.id:
+    if not w or not teacher_or_admin_owns_work(user, w.teacher_id):
         raise HTTPException(status_code=403, detail="Нет доступа")
     w.is_published = not w.is_published
     db.commit()

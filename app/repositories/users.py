@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.orm import Role, User
 
@@ -12,6 +12,17 @@ def get_user_by_username(db: Session, username: str) -> User | None:
 
 def get_user(db: Session, user_id: int) -> User | None:
     return db.get(User, user_id)
+
+
+def list_users(db: Session) -> list[User]:
+    return list(
+        db.execute(
+            select(User).options(joinedload(User.role)).order_by(User.id).limit(500),
+        )
+        .scalars()
+        .unique()
+        .all(),
+    )
 
 
 def ensure_role(db: Session, name: str) -> Role:

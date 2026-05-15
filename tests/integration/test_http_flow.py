@@ -14,6 +14,20 @@ def test_login_page_ok(client) -> None:
     assert "login" in r.text.lower() or "логин" in r.text.lower()
 
 
+def test_admin_login_root_goes_to_admin_dashboard(client) -> None:
+    r = client.post(
+        "/login",
+        data={"username": "admin", "password": "admin"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 302
+    r2 = client.get("/", follow_redirects=False)
+    assert r2.status_code == 302
+    assert r2.headers.get("location") == "/admin"
+    r3 = client.get("/admin", follow_redirects=False)
+    assert r3.status_code == 200
+
+
 def test_teacher_login_and_dashboard(client) -> None:
     r = client.post(
         "/login",

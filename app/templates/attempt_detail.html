@@ -1,7 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Попытка #{{ attempt.id }}{% endblock %}
+{% block title %}
+  {% if role == "teacher" %}Попытка: {{ attempt.student.display_name or attempt.student.username }}{% else %}Попытка #{{ attempt.id }}{% endif %}
+{% endblock %}
 {% block content %}
+{% if role == "teacher" %}
+<section class="card student-banner">
+  <p class="meta student-banner-label">Студент</p>
+  <h1 class="student-banner-name">{{ attempt.student.display_name or attempt.student.username }}</h1>
+  <p class="meta">Логин: {{ attempt.student.username }}{% if reference_work_title is defined %} · Работа: {{ reference_work_title }}{% endif %}</p>
+</section>
+<h2 class="h-page-sub">Попытка #{{ attempt.id }}</h2>
+{% else %}
 <h1>Попытка #{{ attempt.id }}</h1>
+{% if reference_work_title is defined %}<p class="meta">Работа: {{ reference_work_title }}</p>{% endif %}
+{% endif %}
 <p>Файл: {{ attempt.submitted_filename or "—" }}</p>
 {% if role == "teacher" and student_upload_file %}
 <p><a href="/download/attempt/{{ attempt.id }}/student_file">Скачать файл студента</a></p>
@@ -82,42 +94,39 @@
   <p class="meta">Версия проверки: {{ report.get('check_run_version') }}</p>
   {% endif %}
   {% set tasks = report.get('tasks', {}) %}
-  <table class="tbl">
-    <thead><tr><th>№</th><th>Статус</th><th>Баллы</th><th>Марка</th><th>Сообщение</th></tr></thead>
-    <tbody>
+  <p class="meta tree-hint">Ниже задания в виде дерева: раскройте строку, чтобы увидеть детали и таблицы сравнения.</p>
+  <ul class="task-tree" role="tree">
     {% for i in range(1, 14) %}
       {% set t = tasks.get(i|string) or tasks.get(i) %}
-      <tr>
-        <td>
-          {{ i }}
+      <li class="task-tree-item" role="treeitem">
+        <details {% if t and t.status and t.status != 'correct' %}open{% endif %}>
+          <summary class="task-tree-summary">
+            <span class="task-tree-no">Задание {{ i }}</span>
+            <span class="task-tree-status">
+              {% if t %}
+                {% if t.status == "correct" %}· Корректно
+                {% elif t.status == "wrong" %}· Неправильно
+                {% elif t.status == "partial" %}· Частично корректно
+                {% elif t.status == "parse_error" %}· Ошибка разбора
+                {% elif t.status == "not_checked" %}· Не проверяется автоматически
+                {% else %}· {{ t.status }}{% endif %}
+              {% else %}· —{% endif %}
+            </span>
+            {% if t %}<span class="task-tree-score meta">({{ t.score }} / {{ t.max_score }})</span>{% endif %}
+          </summary>
+          <div class="task-tree-body">
           {% if role == 'student' and (scoring_mode|default('training')) == 'training' %}
             {% set th = (training_task_hints or {}).get(i) %}
-            {% if th %}
-              <div class="meta" style="font-weight:normal;margin-top:0.25em">{{ th }}</div>
-            {% endif %}
+            {% if th %}<p class="meta">{{ th }}</p>{% endif %}
           {% endif %}
-        </td>
-        <td>
-          {% if t %}
-            {% if t.status == "correct" %}Корректно
-            {% elif t.status == "wrong" %}Неправильно
-            {% elif t.status == "partial" %}Частично корректно
-            {% elif t.status == "parse_error" %}Ошибка разбора
-            {% elif t.status == "not_checked" %}Не проверяется автоматически
-            {% else %}{{ t.status }}{% endif %}
-          {% else %}—{% endif %}
-        </td>
-        <td>{{ (t.score ~ ' / ' ~ t.max_score) if t else "—" }}</td>
-        <td>
-          {% if t and t.semantic_mark %}{{ t.semantic_mark }}{% else %}—{% endif %}
-          {% if role == 'teacher' and t and t.semantic_mark_explanation %}
-            <div class="meta">{{ t.semantic_mark_explanation }}</div>
+          {% if t and t.semantic_mark %}
+          <p class="meta">Марка: {{ t.semantic_mark }}
+            {% if role == 'teacher' and t.semantic_mark_explanation %} — {{ t.semantic_mark_explanation }}{% endif %}
+          </p>
           {% endif %}
-        </td>
-        <td>
-          {% if t and t.human_message %}{{ t.human_message }}{% endif %}
+          {% if t and t.human_message %}<p>{{ t.human_message }}</p>{% endif %}
           {% if t and t.semantic_analysis and t.semantic_analysis.compare_table and t.semantic_analysis.compare_table.rows %}
-            <table class="tbl" style="margin-top:0.6em">
+            <table class="tbl compare-table">
               <thead>
                 <tr>
                   <th>Ожидаемые атрибуты</th>
@@ -126,9 +135,9 @@
               </thead>
               <tbody>
               {% for row in t.semantic_analysis.compare_table.rows %}
-                <tr>
-                  <td>{{ row.expected }}</td>
-                  <td>{{ row.actual }}</td>
+                <tr class="{% if row.expected != row.actual %}compare-row-mismatch{% endif %}">
+                  <td class="compare-cell">{% if row.expected_html %}{{ row.expected_html|safe }}{% else %}{{ row.expected }}{% endif %}</td>
+                  <td class="compare-cell">{% if row.actual_html %}{{ row.actual_html|safe }}{% else %}{{ row.actual }}{% endif %}</td>
                 </tr>
               {% endfor %}
               </tbody>
@@ -153,10 +162,10 @@
             {% endfor %}
             </ul>
           {% endif %}
-        </td>
-      </tr>
+          </div>
+        </details>
+      </li>
     {% endfor %}
-    </tbody>
-  </table>
+  </ul>
 </section>
 {% endblock %}

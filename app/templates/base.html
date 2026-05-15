@@ -9,7 +9,7 @@
 <body>
 <header class="topbar">
   <div class="wrap topbar-inner">
-    <a class="brand" href="{% if user is defined and user %}{% if user.role.name == 'teacher' %}/teacher{% elif user.role.name == 'student' %}/student{% else %}/{% endif %}{% else %}/{% endif %}">
+    <a class="brand" href="{% if user is defined and user %}{% if user.role.name == 'teacher' %}/teacher{% elif user.role.name == 'student' %}/student{% elif user.role.name == 'admin' %}/admin{% else %}/{% endif %}{% else %}/{% endif %}">
       <span class="brand-mark">NC</span>
       <span class="brand-text">NormChecker</span>
     </a>
@@ -17,6 +17,9 @@
       {% if user is defined and user %}
         <span class="pill pill-muted">{{ user.display_name or user.username }}</span>
         <span class="role-pill role-{{ user.role.name }}">{{ user.role.name }}</span>
+        {% if user.role.name == 'admin' %}
+        <a class="nav-link" href="/teacher">Преподаватель</a>
+        {% endif %}
         <a class="nav-link" href="/logout">Выход</a>
       {% endif %}
     </nav>

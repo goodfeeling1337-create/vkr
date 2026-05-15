@@ -63,6 +63,7 @@ def upload_new_reference(
     teacher_id: int,
     scoring_mode: str,
     title: str,
+    course_label: str | None,
     file_bytes: bytes,
     original_filename: str,
     publish: bool,
@@ -70,9 +71,11 @@ def upload_new_reference(
     settings = get_settings()
     if scoring_mode not in ("training", "testing"):
         scoring_mode = "training"
+    cl = (course_label or "").strip() or None
     rw = ReferenceWork(
         teacher_id=teacher_id,
         title=title,
+        course_label=cl,
         is_published=publish,
         scoring_mode=scoring_mode,
         allow_optional_pure_junction=settings.allow_optional_pure_junction_relations,

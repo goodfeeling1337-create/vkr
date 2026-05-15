@@ -57,6 +57,8 @@ class ReferenceWork(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
+    # Необязательная метка курса (для фильтрации у преподавателя)
+    course_label: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     # Режим для студента: training | testing

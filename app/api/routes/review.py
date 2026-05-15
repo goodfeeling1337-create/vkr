@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_teacher
+from app.api.deps import require_teacher, teacher_or_admin_owns_work
 from app.db.session import get_db
 from app.models.orm import User
 from app.repositories import attempts as att_repo
@@ -24,7 +24,7 @@ async def teacher_comment(
     body: str = Form(...),
 ) -> RedirectResponse:
     att = att_repo.get_attempt(db, attempt_id)
-    if att is None or att.reference_version.reference_work.teacher_id != user.id:
+    if att is None or not teacher_or_admin_owns_work(user, att.reference_version.reference_work.teacher_id):
         raise HTTPException(status_code=403, detail="Нет доступа")
     try:
         review_service.add_comment(db, attempt_id, user.id, body)
@@ -41,7 +41,7 @@ async def teacher_review_file(
     upload: UploadFile = File(...),
 ) -> RedirectResponse:
     att = att_repo.get_attempt(db, attempt_id)
-    if att is None or att.reference_version.reference_work.teacher_id != user.id:
+    if att is None or not teacher_or_admin_owns_work(user, att.reference_version.reference_work.teacher_id):
         raise HTTPException(status_code=403, detail="Нет доступа")
     try:
         data = await read_upload_with_size_limit(upload, label="файл проверки")

@@ -12,8 +12,6 @@ log = logging.getLogger(__name__)
 def get_or_create_review(db: Session, attempt_id: int, teacher_id: int) -> TeacherReview:
     r = db.query(TeacherReview).filter(TeacherReview.attempt_id == attempt_id).one_or_none()
     if r:
-        if r.teacher_id != teacher_id:
-            raise PermissionError("Чужая попытка")
         return r
     r = TeacherReview(attempt_id=attempt_id, teacher_id=teacher_id)
     db.add(r)

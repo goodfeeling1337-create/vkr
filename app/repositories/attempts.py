@@ -44,15 +44,58 @@ def get_attempt_detail(db: Session, attempt_id: int) -> StudentAttempt | None:
     ).unique().scalar_one_or_none()
 
 
-def list_attempts_for_teacher(db: Session, teacher_id: int) -> list[StudentAttempt]:
+def list_attempts_for_teacher(
+    db: Session,
+    teacher_id: int,
+    *,
+    course_label: str | None = None,
+    reference_work_id: int | None = None,
+    limit: int = 200,
+) -> list[StudentAttempt]:
     q = (
         select(StudentAttempt)
         .join(ReferenceWorkVersion, StudentAttempt.reference_version_id == ReferenceWorkVersion.id)
         .join(ReferenceWork, ReferenceWorkVersion.reference_work_id == ReferenceWork.id)
         .where(ReferenceWork.teacher_id == teacher_id)
-        .options(joinedload(StudentAttempt.student))
+        .options(
+            joinedload(StudentAttempt.student),
+            joinedload(StudentAttempt.reference_version).joinedload(ReferenceWorkVersion.reference_work),
+        )
         .order_by(StudentAttempt.id.desc())
     )
+    if course_label:
+        q = q.where(ReferenceWork.course_label == course_label)
+    if reference_work_id is not None:
+        q = q.where(ReferenceWork.id == reference_work_id)
+    q = q.limit(limit)
+    return list(db.execute(q).scalars().unique().all())
+
+
+def list_attempts_all(
+    db: Session,
+    *,
+    course_label: str | None = None,
+    reference_work_id: int | None = None,
+    limit: int = 300,
+) -> list[StudentAttempt]:
+    """Все попытки (для администратора)."""
+    q = (
+        select(StudentAttempt)
+        .join(ReferenceWorkVersion, StudentAttempt.reference_version_id == ReferenceWorkVersion.id)
+        .join(ReferenceWork, ReferenceWorkVersion.reference_work_id == ReferenceWork.id)
+        .options(
+            joinedload(StudentAttempt.student),
+            joinedload(StudentAttempt.reference_version).joinedload(ReferenceWorkVersion.reference_work).joinedload(
+                ReferenceWork.teacher,
+            ),
+        )
+        .order_by(StudentAttempt.id.desc())
+    )
+    if course_label:
+        q = q.where(ReferenceWork.course_label == course_label)
+    if reference_work_id is not None:
+        q = q.where(ReferenceWork.id == reference_work_id)
+    q = q.limit(limit)
     return list(db.execute(q).scalars().unique().all())
 
 

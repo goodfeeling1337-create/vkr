@@ -15,6 +15,7 @@ def test_required_routers_are_registered() -> None:
     routes = app.router.routes
     route_paths = {getattr(r, "path", "") for r in routes}
     assert "/login" in route_paths
+    assert "/admin" in route_paths
     assert "/teacher" in route_paths
     assert "/student" in route_paths
     assert "/download/template/{version_id}" in route_paths

@@ -26,7 +26,9 @@ log = logging.getLogger(__name__)
 async def index(user: Optional[User] = Depends(get_current_user_optional)) -> RedirectResponse:
     if user is None:
         return RedirectResponse("/login", status_code=302)
-    if user.role.name in ("teacher", "admin"):
+    if user.role.name == "admin":
+        return RedirectResponse("/admin", status_code=302)
+    if user.role.name == "teacher":
         return RedirectResponse("/teacher", status_code=302)
     return RedirectResponse("/student", status_code=302)
 

@@ -3,16 +3,87 @@
 {% block content %}
 <div class="page-head">
   <h1>Панель преподавателя</h1>
-  <p class="lead">Эталоны и попытки студентов — в одном месте.</p>
+  <p class="lead">Два режима: <strong>проверка работ</strong> студентов и <strong>эталоны</strong> (загрузка и версии).</p>
+  {% if is_admin %}<p class="meta">Вы вошли как администратор — видны все работы и попытки. Обзор системы: <a href="/admin">панель администратора</a>.</p>{% endif %}
 </div>
 
 {% if error %}<p class="err card">{{ error }}</p>{% endif %}
 
-<section class="card card-form">
-  <h2>Загрузить эталон (.xlsx)</h2>
+<nav class="teacher-mode-nav card" aria-label="Режимы преподавателя">
+  <a href="#check" class="teacher-mode-link">Проверка работ</a>
+  <span class="teacher-mode-sep">|</span>
+  <a href="#refs" class="teacher-mode-link">Эталоны и загрузка</a>
+</nav>
+
+<section id="check" class="card">
+  <h2>Проверка работ</h2>
+  <p class="meta">Последние попытки: отфильтруйте по курсу и по тесту (работе), затем откройте попытку для просмотра отчёта и комментария.</p>
+  <form method="get" action="/teacher" class="form-grid filter-row">
+    <label>Курс (метка)
+      <select name="course">
+        <option value="">— все —</option>
+        {% for c in course_labels %}
+        <option value="{{ c }}" {% if filter_course == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Тест (работа)
+      <select name="work_id">
+        <option value="">— все —</option>
+        {% for w in works %}
+        <option value="{{ w.id }}" {% if filter_work_id == w.id %}selected{% endif %}>{{ w.title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn">Применить фильтр</button>
+    {% if filter_course or filter_work_id %}
+    <a class="btn btn-ghost" href="/teacher">Сбросить</a>
+    {% endif %}
+  </form>
+
+  {% if attempts %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Дата</th>
+        <th>Студент</th>
+        <th>Тест</th>
+        <th>Режим</th>
+        <th>Файл</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for a in attempts %}
+      {% set rw = a.reference_version.reference_work %}
+      <tr>
+        <td class="meta">{{ a.created_at.strftime('%Y-%m-%d %H:%M') if a.created_at else '—' }}</td>
+        <td><strong>{{ a.student.display_name or a.student.username }}</strong></td>
+        <td>{{ rw.title }}{% if rw.course_label %} <span class="meta">({{ rw.course_label }})</span>{% endif %}</td>
+        <td>
+          <span class="badge {% if rw.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
+            {{ 'Тренировка' if rw.scoring_mode == 'training' else 'Тестирование' }}
+          </span>
+        </td>
+        <td>{{ a.submitted_filename or "—" }}</td>
+        <td class="tbl-actions"><a href="/teacher/attempt/{{ a.id }}">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="meta">Пока нет попыток по выбранным условиям.</p>
+  {% endif %}
+</section>
+
+<section id="refs" class="card card-form">
+  <h2>Эталоны и загрузка</h2>
+  <p class="meta">Здесь загружается эталонный Excel и задаётся режим для студентов: <strong>тренировка</strong> (подсказки) или <strong>тестирование</strong>.</p>
+  <h3 class="h-inline">Загрузить эталон (.xlsx)</h3>
   <form method="post" action="/teacher/reference/upload" enctype="multipart/form-data" class="form-grid">
     <input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token() }}"/>
-    <label>Название работы <input name="title" required placeholder="Например: Кварплата"/></label>
+    <label>Название работы (тест) <input name="title" required placeholder="Например: Контрольная 2"/></label>
+    <label>Курс (метка, необязательно) <input name="course_label" placeholder="Например: БД-2025"/></label>
     <label>Режим для студентов
       <select name="scoring_mode">
         <option value="training" selected>Тренировка</option>
@@ -26,12 +97,13 @@
 </section>
 
 <section class="card">
-  <h2>Эталоны</h2>
+  <h2>Список эталонов</h2>
   {% if works %}
   <table class="tbl">
     <thead>
       <tr>
         <th>Работа</th>
+        <th>Курс</th>
         <th>Режим</th>
         <th>Версий</th>
         <th>Статус</th>
@@ -42,6 +114,7 @@
     {% for w in works %}
       <tr>
         <td><strong>{{ w.title }}</strong></td>
+        <td>{{ w.course_label or "—" }}</td>
         <td>
           <span class="badge {% if w.scoring_mode == 'training' %}badge-training{% else %}badge-testing{% endif %}">
             {{ 'Тренировка' if w.scoring_mode == 'training' else 'Тестирование' }}
@@ -56,27 +129,6 @@
   </table>
   {% else %}
   <p class="meta">Эталонов пока нет.</p>
-  {% endif %}
-</section>
-
-<section class="card">
-  <h2>Последние попытки</h2>
-  {% if attempts %}
-  <table class="tbl">
-    <thead><tr><th>ID</th><th>Студент</th><th>Файл</th><th></th></tr></thead>
-    <tbody>
-    {% for a in attempts[:40] %}
-      <tr>
-        <td>#{{ a.id }}</td>
-        <td>{{ a.student.username }}</td>
-        <td>{{ a.submitted_filename or "—" }}</td>
-        <td class="tbl-actions"><a href="/teacher/attempt/{{ a.id }}">Открыть</a></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="meta">Пока нет попыток.</p>
   {% endif %}
 </section>
 {% endblock %}

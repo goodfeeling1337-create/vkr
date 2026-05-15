@@ -65,4 +65,11 @@ def test_task11_lists_missing_relation() -> None:
     r = check_task11(ref, stu, allow_optional_pure_junction=False)
     assert r.status == TaskStatus.wrong
     assert any("Нет в ответе" in e or "2НФ" in e for e in r.errors)
-    assert any("B(" in e for e in r.errors)
+    assert any("y" in e and "z" in e for e in r.errors)
+
+
+def test_task11_ignores_relation_name_when_attrs_match() -> None:
+    ref = {"relations": [{"name": "R1", "attributes": ["a", "b"], "key_attributes": ["a"]}]}
+    stu = {"relations": [{"name": "Other", "attributes": ["a", "b"], "key_attributes": ["a"]}]}
+    r = check_task11(ref, stu, allow_optional_pure_junction=False)
+    assert r.status == TaskStatus.correct

@@ -11,7 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api.routes import attempt_views, auth, downloads, reference, review, student, teacher
+from app.api.routes import admin, attempt_views, auth, downloads, reference, review, student, teacher
 from app.api.views import templates
 from app.core.config import get_settings
 from app.core.csrf_middleware import CSRFMiddleware
@@ -47,6 +47,7 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(teacher.router)
 app.include_router(reference.router)
 app.include_router(attempt_views.router)

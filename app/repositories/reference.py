@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.orm import ReferenceTaskAnswer, ReferenceWork, ReferenceWorkVersion
@@ -20,6 +20,37 @@ def list_reference_works_for_teacher(db: Session, teacher_id: int) -> list[Refer
         .unique()
         .all(),
     )
+
+
+def list_all_reference_works(db: Session) -> list[ReferenceWork]:
+    return list(
+        db.execute(
+            select(ReferenceWork)
+            .options(joinedload(ReferenceWork.versions), joinedload(ReferenceWork.teacher))
+            .order_by(ReferenceWork.id.desc()),
+        )
+        .scalars()
+        .unique()
+        .all(),
+    )
+
+
+def distinct_course_labels_for_teacher(db: Session, teacher_id: int) -> list[str]:
+    rows = db.execute(
+        select(distinct(ReferenceWork.course_label))
+        .where(ReferenceWork.teacher_id == teacher_id, ReferenceWork.course_label.is_not(None))
+        .order_by(ReferenceWork.course_label),
+    ).all()
+    return [r[0] for r in rows if r[0]]
+
+
+def distinct_course_labels_all(db: Session) -> list[str]:
+    rows = db.execute(
+        select(distinct(ReferenceWork.course_label))
+        .where(ReferenceWork.course_label.is_not(None))
+        .order_by(ReferenceWork.course_label),
+    ).all()
+    return [r[0] for r in rows if r[0]]
 
 
 def get_reference_work(db: Session, work_id: int) -> ReferenceWork | None:

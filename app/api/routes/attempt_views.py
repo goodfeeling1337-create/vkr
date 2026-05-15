@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_student, require_teacher
+from app.api.deps import require_student, require_teacher, teacher_or_admin_owns_work
 from app.api.views import templates
 from app.db.session import get_db
 from app.models.orm import CheckRun, User
@@ -38,7 +38,7 @@ async def teacher_attempt(
     if att is None:
         raise HTTPException(status_code=404, detail="Попытка не найдена")
     rw = att.reference_version.reference_work
-    if rw.teacher_id != user.id:
+    if not teacher_or_admin_owns_work(user, rw.teacher_id):
         raise HTTPException(status_code=403, detail="Нет доступа")
     cr = db.execute(
         select(CheckRun).where(CheckRun.attempt_id == att.id).order_by(CheckRun.id.desc()),
@@ -59,6 +59,7 @@ async def teacher_attempt(
             "code_training_hints": CODE_TRAINING_HINTS,
             "feedback_restricted": False,
             "student_upload_file": student_upload_file,
+            "reference_work_title": rw.title,
         },
     )
 
@@ -82,6 +83,7 @@ async def student_attempt_view(
     student_upload_file = _latest_student_upload_file(att)
     if scoring_mode == "testing":
         report = student_testing_report_view(report)
+    rw = att.reference_version.reference_work
     return templates.TemplateResponse(
         request,
         "attempt_detail.html",
@@ -94,7 +96,8 @@ async def student_attempt_view(
             "training_task_hints": TASK_TRAINING_HINTS,
             "code_training_hints": CODE_TRAINING_HINTS,
             "feedback_restricted": scoring_mode == "testing",
-            "work_id": att.reference_version.reference_work.id,
+            "work_id": rw.id,
             "student_upload_file": student_upload_file,
+            "reference_work_title": rw.title,
         },
     )

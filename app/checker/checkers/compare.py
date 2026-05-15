@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from app.checker.fd_algebra import elementary_fd_signature, group_by_lhs
@@ -305,6 +306,70 @@ def check_task9(ref: dict[str, Any], stu: dict[str, Any]) -> TaskCheckResult:
     )
 
 
+def relation_schema_attr_key_multiset(
+    rels: list[dict[str, Any]],
+    *,
+    allow_optional_pure_junction: bool,
+) -> Counter[tuple[frozenset[str], frozenset[str]]]:
+    """Задание 11: сравнение схем без имён отношений — только наборы атрибутов и ключей."""
+    c: Counter[tuple[frozenset[str], frozenset[str]]] = Counter()
+    for r in rels or []:
+        attrs = frozenset(normalize_attribute_name(a) for a in r.get("attributes", []))
+        keys = frozenset(normalize_attribute_name(a) for a in r.get("key_attributes", []))
+        if allow_optional_pure_junction and attrs == keys and len(attrs) >= 2:
+            continue
+        c[(attrs, keys)] += 1
+    return c
+
+
+def _fmt_attr_key_pair(pair: tuple[frozenset[str], frozenset[str]]) -> str:
+    attrs, keys = pair
+    return f"атрибуты({','.join(sorted(attrs))}) ключ({','.join(sorted(keys))})"
+
+
+def _schema_attr_key_multiset_diff_errors(
+    rr: list[dict[str, Any]],
+    sr: list[dict[str, Any]],
+    *,
+    allow_optional_pure_junction: bool,
+    label: str,
+) -> list[str]:
+    rc = relation_schema_attr_key_multiset(rr, allow_optional_pure_junction=allow_optional_pure_junction)
+    sc = relation_schema_attr_key_multiset(sr, allow_optional_pure_junction=allow_optional_pure_junction)
+    if rc == sc:
+        return []
+    errs: list[str] = []
+    missing = rc - sc
+    extra = sc - rc
+    if missing:
+        lim = 12
+        items = list(missing.elements())[:lim]
+        tail = ""
+        if sum(missing.values()) > lim:
+            tail = f" … (всего не хватает или отличается по кратности {sum(missing.values())} схем.)"
+        errs.append(
+            "Нет в ответе или не совпадает по атрибутам/ключу ("
+            + label
+            + "): "
+            + "; ".join(_fmt_attr_key_pair(x) for x in items)
+            + tail,
+        )
+    if extra:
+        lim = 12
+        items = list(extra.elements())[:lim]
+        tail = ""
+        if sum(extra.values()) > lim:
+            tail = f" … (всего лишних {sum(extra.values())})"
+        errs.append(
+            "Лишние схемы относительно эталона по атрибутам/ключу ("
+            + label
+            + "): "
+            + "; ".join(_fmt_attr_key_pair(x) for x in items)
+            + tail,
+        )
+    return errs if errs else [f"Схема отношений ({label}) не совпадает с эталоном по атрибутам и ключам"]
+
+
 def _canon_relation_set(rels: list[dict[str, Any]], allow_drop_pure: bool) -> set[tuple[str, tuple[str, ...], tuple[str, ...]]]:
     out: set[tuple[str, tuple[str, ...], tuple[str, ...]]] = set()
     for r in rels:
@@ -370,14 +435,15 @@ def check_task11(
     stu: dict[str, Any],
     allow_optional_pure_junction: bool,
 ) -> TaskCheckResult:
+    """2НФ: имена отношений могут отличаться от эталона — сравниваются только атрибуты и ключи."""
     rr = ref.get("relations", [])
     sr = stu.get("relations", [])
-    rc = _canon_relation_set(rr, allow_optional_pure_junction)
-    sc = _canon_relation_set(sr, allow_optional_pure_junction)
+    rc = relation_schema_attr_key_multiset(rr, allow_optional_pure_junction=allow_optional_pure_junction)
+    sc = relation_schema_attr_key_multiset(sr, allow_optional_pure_junction=allow_optional_pure_junction)
     ok = rc == sc
     errs: list[str] = []
     if not ok:
-        errs = _schema_set_diff_errors(
+        errs = _schema_attr_key_multiset_diff_errors(
             rr,
             sr,
             allow_optional_pure_junction=allow_optional_pure_junction,

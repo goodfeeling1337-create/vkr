@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import html
+import re
 from collections import Counter
 from dataclasses import asdict
 from typing import Any
 
 from app.checker.error_analyzer import analyze_task_errors
 from app.checker.grade_bands import semantic_mark_from_fd_sets, semantic_mark_from_status
+from app.checker.normalizers import normalize_attribute_name
 from app.checker.semantic_compare import (
     compare_elementary_fd_sets,
     compare_relation_schemas,
+    compare_relation_schemas_task11_attrs_only,
     compare_task4_grouped_fd,
 )
 from app.domain.check_results import CheckReport, TaskCheckResult, TaskStatus
@@ -37,6 +41,86 @@ def _format_relation_item(item: dict[str, Any]) -> str:
     attrs = ", ".join(str(x) for x in (item.get("attributes") or []))
     keys = ", ".join(str(x) for x in (item.get("key_attributes") or []))
     return f"{name}({attrs}) key({keys})"
+
+
+def _format_relation_attrs_keys_only(item: dict[str, Any]) -> str:
+    attrs = ", ".join(str(x) for x in (item.get("attributes") or []))
+    keys = ", ".join(str(x) for x in (item.get("key_attributes") or []))
+    return f"({attrs}) ключ({keys})"
+
+
+def _relation_attrs_sort_key(item: dict[str, Any]) -> tuple[frozenset[str], frozenset[str]]:
+    return (
+        frozenset(normalize_attribute_name(a) for a in item.get("attributes", [])),
+        frozenset(normalize_attribute_name(a) for a in item.get("key_attributes", [])),
+    )
+
+
+def _wrap_wrong_cell(text: str) -> str:
+    if not text:
+        return ""
+    return f'<span class="compare-attr-wrong">{html.escape(text)}</span>'
+
+
+def _split_fd_arrow(s: str) -> tuple[str, str] | None:
+    s = (s or "").strip()
+    if "->" not in s:
+        return None
+    lhs, rhs = s.split("->", 1)
+    return lhs.strip(), rhs.strip()
+
+
+def _fd_side_tokens(side: str) -> list[str]:
+    if not side:
+        return []
+    return [p for p in re.split(r"[\s,]+", side) if p]
+
+
+def _markup_fd_line_pair(expected: str, actual: str) -> tuple[str, str]:
+    """Подсветка расходящихся атрибутов в левой и правой части ФЗ (строка с '->')."""
+    if expected == actual:
+        return html.escape(expected), html.escape(actual)
+    pe = _split_fd_arrow(expected)
+    pa = _split_fd_arrow(actual)
+    if not pe or not pa:
+        return _wrap_wrong_cell(expected), _wrap_wrong_cell(actual)
+    el, er = pe
+    al, ar = pa
+
+    def paint_side(ref_side: str, stu_side: str) -> str:
+        toks = _fd_side_tokens(ref_side)
+        other = {normalize_attribute_name(x) for x in _fd_side_tokens(stu_side)}
+        parts: list[str] = []
+        for t in toks:
+            if normalize_attribute_name(t) not in other:
+                parts.append(f'<span class="compare-attr-wrong">{html.escape(t)}</span>')
+            else:
+                parts.append(html.escape(t))
+        return " ".join(parts)
+
+    sep = ' <span class="compare-fd-arrow">→</span> '
+    return paint_side(el, al) + sep + paint_side(er, ar), paint_side(al, el) + sep + paint_side(ar, er)
+
+
+def _compare_cells_markup(task_number: int, expected: str, actual: str) -> tuple[str, str]:
+    """HTML для ячеек сравнения (уже экранирован, кроме обёрток span)."""
+    exp = expected or ""
+    act = actual or ""
+    if exp == act:
+        return html.escape(exp), html.escape(act)
+    if task_number in {4, 6, 7, 8, 9}:
+        return _markup_fd_line_pair(exp, act)
+    return _wrap_wrong_cell(exp), _wrap_wrong_cell(act)
+
+
+def _enrich_compare_rows_markup(task_number: int, rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        exp = row.get("expected") or ""
+        act = row.get("actual") or ""
+        eh, ah = _compare_cells_markup(task_number, exp, act)
+        out.append({**row, "expected_html": eh, "actual_html": ah})
+    return out
 
 
 def _build_compare_rows(task_number: int, ref_payload: dict[str, Any], stu_payload: dict[str, Any]) -> list[dict[str, str]]:
@@ -68,7 +152,12 @@ def _build_compare_rows(task_number: int, ref_payload: dict[str, Any], stu_paylo
     elif task_number == 5:
         exp = _as_list_str(ref_payload.get("pk_attributes") or [])
         got = _as_list_str(stu_payload.get("pk_attributes") or [])
-    elif task_number in {11, 13}:
+    elif task_number == 11:
+        rrels = sorted(ref_payload.get("relations") or [], key=_relation_attrs_sort_key)
+        srels = sorted(stu_payload.get("relations") or [], key=_relation_attrs_sort_key)
+        exp = [_format_relation_attrs_keys_only(x) for x in rrels]
+        got = [_format_relation_attrs_keys_only(x) for x in srels]
+    elif task_number == 13:
         exp = [_format_relation_item(x) for x in (ref_payload.get("relations") or [])]
         got = [_format_relation_item(x) for x in (stu_payload.get("relations") or [])]
     else:
@@ -114,7 +203,9 @@ def enrich_task_result(
         tr.typical_mistakes = []
         tr.semantic_analysis = {"status": "parse_error"}
         if compare_rows:
-            tr.semantic_analysis["compare_table"] = {"rows": compare_rows}
+            tr.semantic_analysis["compare_table"] = {
+                "rows": _enrich_compare_rows_markup(task_number, compare_rows),
+            }
         _set_task_human_message(tr, task_number, compare_rows)
         analysis = analyze_task_errors(task_number, tr, semantic=None)
         tr.typical_mistakes = [asdict(m) for m in analysis.matches] if analysis.matches else []
@@ -160,11 +251,18 @@ def enrich_task_result(
         tr.semantic_mark_explanation = expl
 
     elif task_number in SCHEMA_SEMANTIC_TASKS:
-        cmp = compare_relation_schemas(
-            ref_payload,
-            stu_payload,
-            allow_optional_pure_junction=allow_optional_pure_junction,
-        )
+        if task_number == 11:
+            cmp = compare_relation_schemas_task11_attrs_only(
+                ref_payload,
+                stu_payload,
+                allow_optional_pure_junction=allow_optional_pure_junction,
+            )
+        else:
+            cmp = compare_relation_schemas(
+                ref_payload,
+                stu_payload,
+                allow_optional_pure_junction=allow_optional_pure_junction,
+            )
         sem = cmp.to_dict()
         sem["schema_normal_form"] = "2nf" if task_number == 11 else "3nf"
         if cmp.sets_equal:
@@ -287,7 +385,9 @@ def enrich_task_result(
     if tr.semantic_analysis is None:
         tr.semantic_analysis = {"status": tr.status.value}
     if compare_rows:
-        tr.semantic_analysis["compare_table"] = {"rows": compare_rows}
+        tr.semantic_analysis["compare_table"] = {
+            "rows": _enrich_compare_rows_markup(task_number, compare_rows),
+        }
     _set_task_human_message(tr, task_number, compare_rows)
 
 

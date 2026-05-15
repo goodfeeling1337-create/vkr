@@ -48,6 +48,8 @@ async def download_reference_original(
             )
     elif user.role.name == "teacher" and rw.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="Нет доступа")
+    elif user.role.name == "admin":
+        pass
     path = Path(ver.storage_path)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Файл не найден на сервере")
@@ -75,6 +77,8 @@ async def download_template(
             raise HTTPException(status_code=403, detail="Нет доступа")
     elif user.role.name == "teacher" and rw.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="Нет доступа")
+    elif user.role.name == "admin":
+        pass
     path, fname = template_service.materialize_student_template(db, version_id)
     return FileResponse(
         path,

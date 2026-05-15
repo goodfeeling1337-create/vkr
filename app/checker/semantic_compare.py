@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.checker.fd_algebra import elementary_fd_signature, group_by_lhs
-from app.checker.checkers.compare import _canon_relation_set
+from app.checker.checkers.compare import _canon_relation_set, relation_schema_attr_key_multiset
 from app.domain.semantic_models import SemanticComparisonResult
 
 
@@ -91,4 +91,35 @@ def compare_relation_schemas(
         jaccard=jacc,
         sets_equal=rc == sc,
         notes=["canonical_relation_set"],
+    )
+
+
+def compare_relation_schemas_task11_attrs_only(
+    ref: dict[str, Any],
+    stu: dict[str, Any],
+    *,
+    allow_optional_pure_junction: bool,
+) -> SemanticComparisonResult:
+    """Задание 11: смысловые метрики по multiset (атрибуты, ключ), без имён таблиц."""
+    rr = ref.get("relations", [])
+    sr = stu.get("relations", [])
+    rc = relation_schema_attr_key_multiset(rr, allow_optional_pure_junction=allow_optional_pure_junction)
+    sc = relation_schema_attr_key_multiset(sr, allow_optional_pure_junction=allow_optional_pure_junction)
+    keys_all = set(rc) | set(sc)
+    inter = sum(min(rc[k], sc[k]) for k in keys_all)
+    union = sum(max(rc.get(k, 0), sc.get(k, 0)) for k in keys_all)
+    ref_n = sum(rc.values())
+    stu_n = sum(sc.values())
+    recall = inter / ref_n if ref_n else (1.0 if stu_n == 0 else 0.0)
+    precision = inter / stu_n if stu_n else (1.0 if ref_n == 0 else 0.0)
+    jacc = inter / union if union else 1.0
+    return SemanticComparisonResult(
+        ref_size=ref_n,
+        stu_size=stu_n,
+        intersection=inter,
+        recall=recall,
+        precision=precision,
+        jaccard=jacc,
+        sets_equal=rc == sc,
+        notes=["task11_attrs_keys_multiset"],
     )

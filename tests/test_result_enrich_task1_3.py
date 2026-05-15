@@ -70,3 +70,29 @@ def test_enrich_task2_adds_expected_vs_actual_compare_table() -> None:
     rows = table.get("rows", [])
     assert any(r.get("expected") == "A" for r in rows)
     assert any(r.get("actual") == "C" for r in rows)
+    row_c = next(r for r in rows if r.get("actual") == "C")
+    assert "compare-attr-wrong" in (row_c.get("actual_html") or "")
+
+
+def test_enrich_task4_highlights_rhs_attribute_mismatch() -> None:
+    tr = TaskCheckResult(
+        task_number=4,
+        status=TaskStatus.wrong,
+        score=0.0,
+        max_score=1.0,
+        errors=["ФЗ"],
+    )
+    enrich_task_result(
+        4,
+        tr,
+        ref_payload={"fd_lines": ["A B -> C"]},
+        stu_payload={"fd_lines": ["A B -> D"]},
+        allow_optional_pure_junction=True,
+    )
+    rows = tr.semantic_analysis.get("compare_table", {}).get("rows", [])
+    assert rows
+    r0 = rows[0]
+    assert "compare-attr-wrong" in (r0.get("actual_html") or "")
+    assert "D" in (r0.get("actual_html") or "")
+    assert "compare-attr-wrong" in (r0.get("expected_html") or "")
+    assert "C" in (r0.get("expected_html") or "")

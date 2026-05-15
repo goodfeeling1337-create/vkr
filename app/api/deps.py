@@ -50,3 +50,14 @@ def require_student(user: Annotated[User, Depends(require_login)]) -> User:
     if user.role.name not in ("student", "admin"):
         raise HTTPException(status_code=403, detail="Нужна роль студента")
     return user
+
+
+def require_admin(user: Annotated[User, Depends(require_login)]) -> User:
+    if user.role.name != "admin":
+        raise HTTPException(status_code=403, detail="Нужна роль администратора")
+    return user
+
+
+def teacher_or_admin_owns_work(user: User, work_teacher_id: int) -> bool:
+    """Преподаватель владеет работой или пользователь — администратор."""
+    return user.role.name == "admin" or user.id == work_teacher_id
