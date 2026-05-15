@@ -153,13 +153,21 @@ def check_task4(ref: dict[str, Any], stu: dict[str, Any], vocab: set[str]) -> Ta
     rg = group_by_lhs(rl)
     sg = group_by_lhs(sl)
     errs: list[str] = []
+    unknown_lhs: set[str] = set()
+    unknown_rhs: set[str] = set()
     for lhs, rhs in sg.items():
         for a in lhs:
             if a not in vocab:
-                errs.append(f"Левая часть ФЗ: атрибут «{a}» не из словаря задания 1")
+                unknown_lhs.add(a)
         for a in rhs:
             if a not in vocab:
-                errs.append(f"Правая часть ФЗ: атрибут «{a}» не из словаря задания 1")
+                unknown_rhs.add(a)
+    if unknown_lhs:
+        attrs = ", ".join(f"«{a}»" for a in sorted(unknown_lhs))
+        errs.append(f"Левая часть ФЗ: атрибуты не из словаря задания 1 — {attrs}")
+    if unknown_rhs:
+        attrs = ", ".join(f"«{a}»" for a in sorted(unknown_rhs))
+        errs.append(f"Правая часть ФЗ: атрибуты не из словаря задания 1 — {attrs}")
     if rg != sg:
         errs.append(
             "Множество функциональных зависимостей не совпадает с эталоном (канонизация по элементарным ФЗ)",
@@ -341,32 +349,19 @@ def _schema_attr_key_multiset_diff_errors(
     errs: list[str] = []
     missing = rc - sc
     extra = sc - rc
+    lim = 5
     if missing:
-        lim = 12
-        items = list(missing.elements())[:lim]
-        tail = ""
-        if sum(missing.values()) > lim:
-            tail = f" … (всего не хватает или отличается по кратности {sum(missing.values())} схем.)"
-        errs.append(
-            "Нет в ответе или не совпадает по атрибутам/ключу ("
-            + label
-            + "): "
-            + "; ".join(_fmt_attr_key_pair(x) for x in items)
-            + tail,
-        )
+        total = sum(missing.values())
+        for x in list(missing.elements())[:lim]:
+            errs.append(f"Отсутствует или отличается схема ({label}): {_fmt_attr_key_pair(x)}")
+        if total > lim:
+            errs.append(f"… и ещё {total - lim} недостающих схем ({label})")
     if extra:
-        lim = 12
-        items = list(extra.elements())[:lim]
-        tail = ""
-        if sum(extra.values()) > lim:
-            tail = f" … (всего лишних {sum(extra.values())})"
-        errs.append(
-            "Лишние схемы относительно эталона по атрибутам/ключу ("
-            + label
-            + "): "
-            + "; ".join(_fmt_attr_key_pair(x) for x in items)
-            + tail,
-        )
+        total = sum(extra.values())
+        for x in list(extra.elements())[:lim]:
+            errs.append(f"Лишняя схема относительно эталона ({label}): {_fmt_attr_key_pair(x)}")
+        if total > lim:
+            errs.append(f"… и ещё {total - lim} лишних схем ({label})")
     return errs if errs else [f"Схема отношений ({label}) не совпадает с эталоном по атрибутам и ключам"]
 
 
@@ -401,32 +396,17 @@ def _schema_set_diff_errors(
     missing = rc - sc
     extra = sc - rc
     errs: list[str] = []
+    lim = 5
     if missing:
-        lim = 12
-        items = sorted(missing, key=lambda x: (x[0], x[1], x[2]))[:lim]
-        tail = ""
+        for x in sorted(missing, key=lambda x: (x[0], x[1], x[2]))[:lim]:
+            errs.append(f"Отсутствует или отличается от эталона ({label}): {_fmt_canon_relation(x)}")
         if len(missing) > lim:
-            tail = f" … (всего не хватает или отличается {len(missing)} отнош.)"
-        errs.append(
-            "Нет в ответе или отличается от эталона ("
-            + label
-            + "): "
-            + "; ".join(_fmt_canon_relation(x) for x in items)
-            + tail
-        )
+            errs.append(f"… и ещё {len(missing) - lim} недостающих отношений ({label})")
     if extra:
-        lim = 12
-        items = sorted(extra, key=lambda x: (x[0], x[1], x[2]))[:lim]
-        tail = ""
+        for x in sorted(extra, key=lambda x: (x[0], x[1], x[2]))[:lim]:
+            errs.append(f"Лишнее отношение относительно эталона ({label}): {_fmt_canon_relation(x)}")
         if len(extra) > lim:
-            tail = f" … (всего лишних {len(extra)})"
-        errs.append(
-            "Лишние отношения относительно эталона ("
-            + label
-            + "): "
-            + "; ".join(_fmt_canon_relation(x) for x in items)
-            + tail
-        )
+            errs.append(f"… и ещё {len(extra) - lim} лишних отношений ({label})")
     return errs if errs else [f"Схема отношений ({label}) не совпадает с эталоном"]
 
 
